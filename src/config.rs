@@ -2,8 +2,9 @@ use miette::{Context, IntoDiagnostic};
 
 #[derive(Debug)]
 pub struct Config {
-  guide_id: usize,
-  api_key:  String,
+  pub guide_id:                  usize,
+  pub api_key:                   String,
+  pub spreadsheet_id_room_setup: String,
 }
 
 impl Config {
@@ -20,6 +21,14 @@ impl Config {
       .into_diagnostic()
       .context("missing `API_KEY` env var")?;
 
-    Ok(Self { guide_id, api_key })
+    let spreadsheet_id_room_setup = std::env::var("SPREADSHEET_ID_ROOM_SETUP")
+      .into_diagnostic()
+      .context("missing `SPREADSHEET_ID_ROOM_SETUP` env var")?;
+
+    Ok(Self {
+      guide_id,
+      api_key,
+      spreadsheet_id_room_setup,
+    })
   }
 }
