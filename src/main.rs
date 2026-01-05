@@ -1,9 +1,10 @@
 #![feature(iterator_try_collect)]
+#![feature(int_roundings)]
 
 mod config;
 
 mod fetch_sheet;
-mod nasup;
+mod parse_nasup;
 
 use std::sync::LazyLock;
 
@@ -25,21 +26,36 @@ async fn main() -> miette::Result<()> {
   let config =
     Config::from_env().context("failed to gather config from env")?;
 
-  let mut sheet =
-    fetch_xlsx_from_google_sheets(&config.spreadsheet_id_room_setup).await?;
-  let worksheet = sheet.get_worksheet("2026 Detailed Schedule").context(
-    "failed to get detailed schedule worksheet from room setup sheet",
-  )?;
-  // let worksheet_data = worksheet.range(
-  //   (
-  //     worksheet.start().unwrap().0 + 1,
-  //     worksheet.start().unwrap().1,
-  //   ),
-  //   worksheet.end().unwrap(),
-  // );
+  // let mut sessions_sheet =
+  //   fetch_xlsx_from_google_sheets(&config.spreadsheet_id_sessions).await?;
+  // let sessions_worksheet = sessions_sheet
+  //   .get_worksheet("2026 Detailed Schedule")
+  //   .context("failed to get correct worksheet from sessions sheet")?;
 
-  let nasup_data =
-    self::nasup::parse_nasup_sessions_from_xlsx_range(worksheet)?;
+  // let _parsed_nasup_session_data =
+  //   self::parse_nasup::parse_sessions::parse_nasup_sessions_from_worksheet(
+  //     sessions_worksheet,
+  //   )
+  //   .context("failed to parse nasup session data from spreadsheet")?;
+
+  let mut presenter_institutions_sheet = fetch_xlsx_from_google_sheets(
+    &config.spreadsheet_id_presenter_institutions,
+  )
+  .await?;
+  let presenter_institutions_worksheet = presenter_institutions_sheet
+    .get_worksheet("oa_export.xlsx")
+    .context(
+      "failed to get correct worksheet from presenter institutions sheet",
+    )?;
+  let _parsed_nasup_presenter_institutions_data = self::parse_nasup::parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet(presenter_institutions_worksheet).context("failed to parse nasup presenter institution data from spreadsheet")?;
+
+  // let session_json = serde_json::to_string(&parsed_nasup_session_data)
+  //   .into_diagnostic()
+  //   .context("failed to serialize parsed nasup session data")?;
+
+  // std::fs::write("/tmp/nasup_data.json", &session_json)
+  //   .into_diagnostic()
+  //   .context("failed to write parsed nasup data as JSON")?;
 
   Ok(())
 }

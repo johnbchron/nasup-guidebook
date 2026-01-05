@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub enum NasupSessionType {
+pub enum ParsedNasupSessionType {
   #[serde(rename = "Collaborative Conversations")]
   CollaborativeConversations,
   #[serde(rename = "Extended Practioner Workshop")]
@@ -27,19 +27,27 @@ pub enum NasupSessionType {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NasupPresenter {
+pub struct ParsedNasupPresenterWithPaymentStatus {
   pub name: String,
   pub paid: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NasupSession {
+pub struct ParsedNasupPresenterWithInstitutionBySession {
+  pub name:               String,
+  pub session_name:       String,
+  pub first_institution:  Option<String>,
+  pub second_institution: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ParsedNasupSession {
   pub date:         chrono::NaiveDate,
   pub start_time:   chrono::NaiveTime,
   pub end_time:     chrono::NaiveTime,
   pub room:         String,
-  pub session_type: NasupSessionType,
+  pub session_type: ParsedNasupSessionType,
   pub title:        String,
   pub description:  String,
-  pub presenters:   Vec<NasupPresenter>,
+  pub presenters:   Vec<ParsedNasupPresenterWithPaymentStatus>,
 }

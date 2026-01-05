@@ -2,16 +2,19 @@ use std::{ops::Index, str::FromStr};
 
 use calamine::Data;
 use miette::{Context, IntoDiagnostic, bail, miette};
-use tracing::{info, instrument, trace, warn};
+use tracing::{debug, info, instrument, trace, warn};
 
-use self::model::{NasupPresenter, NasupSession, NasupSessionType};
-use crate::fetch_sheet::DecodedWorksheet;
+use super::parse_model::ParsedNasupSession;
+use crate::{
+  fetch_sheet::DecodedWorksheet,
+  parse_nasup::parse_model::{
+    ParsedNasupPresenterWithPaymentStatus, ParsedNasupSessionType,
+  },
+};
 
-pub mod model;
-
-pub fn parse_nasup_sessions_from_xlsx_range(
+pub fn parse_nasup_sessions_from_worksheet(
   worksheet: DecodedWorksheet,
-) -> miette::Result<Vec<NasupSession>> {
+) -> miette::Result<Vec<ParsedNasupSession>> {
   let mut sessions = Vec::new();
 
   let iter = worksheet.main.rows().enumerate();
@@ -33,9 +36,7 @@ pub fn parse_nasup_session_from_row(
   row_index: usize,
   row: &[Data],
   styles: &umya_spreadsheet::Worksheet,
-) -> miette::Result<NasupSession> {
-  // dbg!(row);
-
+) -> miette::Result<ParsedNasupSession> {
   miette::ensure!(
     !row.is_empty(),
     "failed to parse XLSX row as NASUP session: row is empty"
@@ -57,7 +58,7 @@ pub fn parse_nasup_session_from_row(
   let day_of_week = chrono::Weekday::from_str(day_of_week)
     .into_diagnostic()
     .context(format!("failed to parse day-of-week, got {day_of_week}"))?;
-  trace!("parsed day_of_week column: {day_of_week}");
+  trace!(%day_of_week, "parsed day_of_week column");
 
   // date
   let date = match row.index(1) {
@@ -68,7 +69,7 @@ pub fn parse_nasup_session_from_row(
   let date = chrono::NaiveDate::from_ymd_opt(y as _, m as _, d as _).ok_or(
     miette!("date column is an invalid date: y = {y}, m = {m}, d = {d}"),
   )?;
-  trace!("parsed date column: {date}");
+  trace!(%date, "parsed date column");
 
   // start time
   let start_time = match row.index(2) {
@@ -78,7 +79,7 @@ pub fn parse_nasup_session_from_row(
   let (_y, _m, _d, h, m, s, _millis) = start_time.to_ymd_hms_milli();
   let start_time = chrono::NaiveTime::from_hms_opt(h as _, m as _, s as _)
     .ok_or(miette!("start_time column is an invalid time"))?;
-  trace!("parsed start_time column: {start_time}");
+  trace!(%start_time, "parsed start_time column");
 
   // end time
   let end_time = match row.index(3) {
@@ -88,14 +89,14 @@ pub fn parse_nasup_session_from_row(
   let (_y, _m, _d, h, m, s, _millis) = end_time.to_ymd_hms_milli();
   let end_time = chrono::NaiveTime::from_hms_opt(h as _, m as _, s as _)
     .ok_or(miette!("end_time column is an invalid time"))?;
-  trace!("parsed end_time column: {end_time}");
+  trace!(%end_time, "parsed end_time column");
 
   // room
   let room = match row.index(4) {
     Data::String(r) => r.trim().to_owned(),
     d => bail!("room column is not a string, got {d:?}"),
   };
-  trace!("parsed room column: {room:?}");
+  trace!(room, "parsed room column");
 
   // type
   let session_type = match row.index(5) {
@@ -105,19 +106,19 @@ pub fn parse_nasup_session_from_row(
   // quoted so that serde_json will parse it as JSON
   let quoted_session_type = format!("\"{session_type}\"");
   let session_type =
-    serde_json::from_str::<NasupSessionType>(&quoted_session_type)
+    serde_json::from_str::<ParsedNasupSessionType>(&quoted_session_type)
       .into_diagnostic()
       .context(format!(
         "failed to parse session_type column, got \"{session_type}\""
       ))?;
-  trace!("parsed session_type column: {session_type:?}");
+  trace!(?session_type, "parsed session_type column");
 
   // title
   let title = match row.index(6) {
     Data::String(t) => t.trim().to_owned(),
     d => bail!("title column is not a string, got {d:?}"),
   };
-  trace!("parsed title column: {title:?}");
+  trace!(title, "parsed title column");
 
   // description
   let description = match row.index(7) {
@@ -125,7 +126,7 @@ pub fn parse_nasup_session_from_row(
     Data::Empty => String::new(),
     d => bail!("description column is not a string, got {d:?}"),
   };
-  trace!("parsed description column: {description:?}");
+  trace!(description, "parsed description column");
 
   // presenters
   let presenter_cells = row[8..]
@@ -154,7 +155,7 @@ pub fn parse_nasup_session_from_row(
           );
           true
         } else {
-          trace!(?coords, "got color for presenter cell: {color:?}");
+          trace!(?coords, ?color, "got color for presenter cell");
           false
         }
       }
@@ -164,13 +165,13 @@ pub fn parse_nasup_session_from_row(
       }
     };
 
-    presenters.push(NasupPresenter {
+    presenters.push(ParsedNasupPresenterWithPaymentStatus {
       name,
       paid: !is_white,
     });
   }
 
-  let session = NasupSession {
+  let session = ParsedNasupSession {
     date,
     start_time,
     end_time,
@@ -181,7 +182,7 @@ pub fn parse_nasup_session_from_row(
     presenters,
   };
 
-  info!("parsed full session: {session:#?}");
+  debug!("parsed full session: {session:#?}");
 
   Ok(session)
 }
