@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParsedNasupSessionType {
   #[serde(rename = "Collaborative Conversations")]
   CollaborativeConversations,
@@ -26,13 +26,13 @@ pub enum ParsedNasupSessionType {
   Symposium,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParsedNasupPresenterWithPaymentStatus {
   pub name: String,
   pub paid: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParsedNasupPresenterWithInstitutionBySession {
   pub name:               String,
   pub session_name:       String,
@@ -40,7 +40,7 @@ pub struct ParsedNasupPresenterWithInstitutionBySession {
   pub second_institution: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParsedNasupSession {
   pub date:         chrono::NaiveDate,
   pub start_time:   chrono::NaiveTime,

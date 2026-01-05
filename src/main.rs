@@ -5,16 +5,12 @@ mod config;
 
 mod fetch_sheet;
 mod parse_nasup;
+mod synth_nasup;
 
-use std::sync::LazyLock;
-
-use miette::Context;
+use miette::{Context, IntoDiagnostic};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-use self::{config::Config, fetch_sheet::fetch_xlsx_from_google_sheets};
-
-static HTTP_CLIENT: LazyLock<reqwest::Client> =
-  LazyLock::new(reqwest::Client::new);
+use self::config::Config;
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
@@ -26,36 +22,26 @@ async fn main() -> miette::Result<()> {
   let config =
     Config::from_env().context("failed to gather config from env")?;
 
-  // let mut sessions_sheet =
-  //   fetch_xlsx_from_google_sheets(&config.spreadsheet_id_sessions).await?;
-  // let sessions_worksheet = sessions_sheet
-  //   .get_worksheet("2026 Detailed Schedule")
-  //   .context("failed to get correct worksheet from sessions sheet")?;
+  let parsed_nasup_session_data =
+    self::parse_nasup::fetch_and_parse_nasup_sessions(&config).await?;
 
-  // let _parsed_nasup_session_data =
-  //   self::parse_nasup::parse_sessions::parse_nasup_sessions_from_worksheet(
-  //     sessions_worksheet,
-  //   )
-  //   .context("failed to parse nasup session data from spreadsheet")?;
+  let parsed_nasup_presenter_institutions_data =
+    self::parse_nasup::fetch_and_parse_nasup_presenter_institutions(&config)
+      .await?;
 
-  let mut presenter_institutions_sheet = fetch_xlsx_from_google_sheets(
-    &config.spreadsheet_id_presenter_institutions,
+  let synthesized_sessions = self::synth_nasup::synthesize_parsed_nasup_data(
+    parsed_nasup_session_data,
+    parsed_nasup_presenter_institutions_data,
   )
-  .await?;
-  let presenter_institutions_worksheet = presenter_institutions_sheet
-    .get_worksheet("oa_export.xlsx")
-    .context(
-      "failed to get correct worksheet from presenter institutions sheet",
-    )?;
-  let _parsed_nasup_presenter_institutions_data = self::parse_nasup::parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet(presenter_institutions_worksheet).context("failed to parse nasup presenter institution data from spreadsheet")?;
+  .context("failed to synthesize nasup data")?;
 
-  // let session_json = serde_json::to_string(&parsed_nasup_session_data)
-  //   .into_diagnostic()
-  //   .context("failed to serialize parsed nasup session data")?;
+  let result_json = serde_json::to_string(&synthesized_sessions)
+    .into_diagnostic()
+    .context("failed to serialize parsed nasup session data")?;
 
-  // std::fs::write("/tmp/nasup_data.json", &session_json)
-  //   .into_diagnostic()
-  //   .context("failed to write parsed nasup data as JSON")?;
+  std::fs::write("/tmp/nasup_data.json", &result_json)
+    .into_diagnostic()
+    .context("failed to write parsed nasup data as JSON")?;
 
   Ok(())
 }
