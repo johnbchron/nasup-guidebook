@@ -1,7 +1,9 @@
+use std::str::pattern::Pattern;
+
 use chrono::{Datelike, TimeZone, Timelike};
 use chrono_tz::{Tz, US::Eastern};
 use serde::Serialize;
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
 use crate::parse_nasup::parse_model::{
   ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
@@ -59,11 +61,22 @@ pub fn synthesize_parsed_nasup_data(
       .single()
       .expect("super crazy time weirdness");
 
+    let session_name_search_query =
+      session_name_search_query(&parsed_session.title);
     let relevant_presenter_institution_records = parsed_presenter_institutions
       .iter()
-      .filter(|r| r.session_name == parsed_session.title)
+      .filter(|r| r.session_name == session_name_search_query)
       .cloned()
       .collect::<Vec<_>>();
+
+    if !parsed_session.presenters.is_empty()
+      && relevant_presenter_institution_records.is_empty()
+    {
+      warn!(
+        session = session_name_search_query,
+        "found no presenter-institution-session records with given session"
+      );
+    }
 
     let mut approved_presenters = Vec::new();
 
@@ -85,7 +98,7 @@ pub fn synthesize_parsed_nasup_data(
         None => {
           error!(
             name = paid_presenter.name,
-            session = parsed_session.title,
+            session = session_name_search_query,
             "could not find presenter-institution-session for presenter"
           );
           approved_presenters.push(NasupPresenter {
@@ -113,4 +126,24 @@ pub fn synthesize_parsed_nasup_data(
   }
 
   Ok(synthesized_sessions)
+}
+
+fn session_name_search_query(mut input: &str) -> String {
+  let prefixes_to_strip = [
+    "A: ", "B: ", "RT 1: ", "RT 2: ", "RT 3: ", "RT 4: ", "RT 5: ", "RT 6: ",
+  ];
+  loop {
+    let mut stripped = false;
+    for prefix in prefixes_to_strip {
+      if let Some(remainder) = prefix.strip_prefix_of(input.trim_start()) {
+        input = remainder;
+        stripped = true;
+        break;
+      }
+    }
+    if !stripped {
+      break;
+    }
+  }
+  input.to_owned()
 }
