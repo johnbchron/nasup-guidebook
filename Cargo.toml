@@ -1,18 +1,18 @@
 [package]
+edition = "2024"
 name = "nasup-guidebook"
 version = "0.1.0"
-edition = "2024"
 
 [dependencies]
 bytes = "1.11.0"
-calamine = { version = "0.32.0", features = ["chrono"] }
-chrono = "0.4.42"
-chrono-tz = "0.10.4"
-miette = { version = "7.6.0", features = ["fancy"] }
-reqwest = "0.13.1"
-serde = { version = "1.0.228", features = ["derive"] }
+calamine = { version = "0.32.0", features = [ "chrono" ] }
+chrono = { version = "0.4.42", features = [ "serde" ] }
+chrono-tz = { version = "0.10.4", features = [ "serde" ] }
+miette = { version = "7.6.0", features = [ "fancy" ] }
+reqwest = { version = "0.13.1", features = [ "json" ] }
+serde = { version = "1.0.228", features = [ "derive" ] }
 serde_json = "1.0.148"
-tokio = { version = "1.49.0", features = ["full"] }
-tracing = { version = "0.1.44", features = ["async-await"] }
-tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+tokio = { version = "1.49.0", features = [ "full" ] }
+tracing = { version = "0.1.44", features = [ "async-await" ] }
+tracing-subscriber = { version = "0.3.22", features = [ "env-filter" ] }
 umya-spreadsheet = "2.3.3"

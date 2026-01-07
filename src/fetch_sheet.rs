@@ -1,12 +1,11 @@
-use std::{io::Cursor, sync::LazyLock};
+use std::io::Cursor;
 
 use bytes::Bytes;
 use calamine::{Data, Range, Reader, Xlsx};
 use miette::{Context, IntoDiagnostic};
 use tracing::{debug, instrument};
 
-static HTTP_CLIENT: LazyLock<reqwest::Client> =
-  LazyLock::new(reqwest::Client::new);
+use crate::HTTP_CLIENT;
 
 pub struct DecodedSpreadsheet {
   pub main:   Xlsx<Cursor<Bytes>>,
