@@ -1,9 +1,9 @@
 use std::str::pattern::Pattern;
 
-use chrono::{Datelike, TimeZone, Timelike};
-use chrono_tz::{Tz, US::Eastern};
+use chrono::{Datelike, TimeZone, Timelike, Utc};
+use chrono_tz::US::Eastern;
 use serde::Serialize;
-use tracing::{debug, error, warn};
+use tracing::{debug, warn};
 
 use crate::parse_nasup::parse_model::{
   ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
@@ -12,8 +12,8 @@ use crate::parse_nasup::parse_model::{
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NasupSession {
-  pub start_datetime:      chrono::DateTime<Tz>,
-  pub end_datetime:        chrono::DateTime<Tz>,
+  pub start_datetime:      chrono::DateTime<Utc>,
+  pub end_datetime:        chrono::DateTime<Utc>,
   pub room:                String,
   pub session_type:        ParsedNasupSessionType,
   pub title:               String,
@@ -48,7 +48,8 @@ pub fn synthesize_parsed_nasup_data(
         parsed_session.start_time.second(),
       )
       .single()
-      .expect("super crazy time weirdness");
+      .expect("super crazy time weirdness")
+      .to_utc();
     let end_datetime = Eastern
       .with_ymd_and_hms(
         parsed_session.date.year(),
@@ -59,10 +60,11 @@ pub fn synthesize_parsed_nasup_data(
         parsed_session.end_time.second(),
       )
       .single()
-      .expect("super crazy time weirdness");
+      .expect("super crazy time weirdness")
+      .to_utc();
 
     let session_name_search_query =
-      session_name_search_query(&parsed_session.title);
+      strip_session_discriminators_from_name(&parsed_session.title);
     let relevant_presenter_institution_records = parsed_presenter_institutions
       .iter()
       .filter(|r| r.session_name == session_name_search_query)
@@ -96,7 +98,7 @@ pub fn synthesize_parsed_nasup_data(
           });
         }
         None => {
-          error!(
+          warn!(
             name = paid_presenter.name,
             session = session_name_search_query,
             "could not find presenter-institution-session for presenter"
@@ -128,7 +130,7 @@ pub fn synthesize_parsed_nasup_data(
   Ok(synthesized_sessions)
 }
 
-fn session_name_search_query(mut input: &str) -> String {
+pub fn strip_session_discriminators_from_name(mut input: &str) -> String {
   let prefixes_to_strip = [
     "A: ", "B: ", "RT 1: ", "RT 2: ", "RT 3: ", "RT 4: ", "RT 5: ", "RT 6: ",
   ];
