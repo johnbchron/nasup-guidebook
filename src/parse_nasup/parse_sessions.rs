@@ -2,7 +2,7 @@ use std::{ops::Index, str::FromStr};
 
 use calamine::Data;
 use miette::{Context, IntoDiagnostic, bail, miette};
-use tracing::{debug, info, instrument, trace, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use super::parse_model::ParsedNasupSession;
 use crate::{
@@ -98,27 +98,25 @@ pub fn parse_nasup_session_from_row(
   };
   trace!(room, "parsed room column");
 
+  // title
+  // parsed before type because we need the title for discriminators
+  let title = match row.index(6) {
+    Data::String(t) => t.trim().to_owned(),
+    d => bail!("title column is not a string, got {d:?}"),
+  };
+  trace!(title, "parsed title column");
+
   // type
   let session_type = match row.index(5) {
     Data::String(t) => t.trim(),
     d => bail!("session_type column is not a string, got {d:?}"),
   };
   // quoted so that serde_json will parse it as JSON
-  let quoted_session_type = format!("\"{session_type}\"");
   let session_type =
-    serde_json::from_str::<ParsedNasupSessionType>(&quoted_session_type)
-      .into_diagnostic()
-      .context(format!(
-        "failed to parse session_type column, got \"{session_type}\""
-      ))?;
+    ParsedNasupSessionType::from_type_and_title(session_type, &title).context(
+      format!("failed to parse session_type column, got \"{session_type}\""),
+    )?;
   trace!(?session_type, "parsed session_type column");
-
-  // title
-  let title = match row.index(6) {
-    Data::String(t) => t.trim().to_owned(),
-    d => bail!("title column is not a string, got {d:?}"),
-  };
-  trace!(title, "parsed title column");
 
   // description
   let description = match row.index(7) {
