@@ -3,8 +3,10 @@ use tracing::{debug, instrument};
 
 use crate::{
   config::Config,
-  guidebook::model::GuidebookSession,
-  synth_nasup::{NasupSession, strip_session_discriminators_from_name},
+  guidebook::model::{GuidebookPresenter, GuidebookSession},
+  synth_nasup::{
+    NasupPresenter, NasupSession, strip_session_discriminators_from_name,
+  },
 };
 
 #[instrument(skip(config, nasup_session))]
@@ -26,6 +28,7 @@ pub fn nasup_session_to_guidebook_session(
     "start": nasup_session.start_datetime,
     "end": nasup_session.end_datetime,
   });
+
   let session_primary_key_json = serde_json::to_string(&session_primary_key)
     .into_diagnostic()
     .context("failed to serialize session primary key into JSON")?;
@@ -57,4 +60,31 @@ pub fn nasup_session_to_guidebook_session(
   );
 
   Ok(session)
+}
+
+pub fn nasup_presenter_to_guidebook_presenter(
+  config: &Config,
+  nasup_presenter: NasupPresenter,
+) -> miette::Result<GuidebookPresenter> {
+  let subtitle = nasup_presenter
+    .first_institution
+    .iter()
+    .chain(nasup_presenter.second_institution.iter())
+    .cloned()
+    .intersperse(", ".to_owned())
+    .collect::<String>();
+
+  let presenter = GuidebookPresenter {
+    id:               None,
+    guide_id:         config.guide_id as u32,
+    name:             Some(nasup_presenter.name),
+    description_html: None,
+    subtitle:         Some(subtitle),
+    allow_rating:     None,
+    import_id:        None,
+    locations:        None,
+    contact_email:    None,
+  };
+
+  Ok(presenter)
 }

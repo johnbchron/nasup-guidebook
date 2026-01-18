@@ -31,13 +31,16 @@ impl DecodedSpreadsheet {
       ))?
       .clone();
 
-    Ok(DecodedWorksheet { main, styles })
+    Ok(DecodedWorksheet {
+      main,
+      styles: Box::new(styles),
+    })
   }
 }
 
 pub struct DecodedWorksheet {
   pub main:   Range<Data>,
-  pub styles: umya_spreadsheet::Worksheet,
+  pub styles: Box<umya_spreadsheet::Worksheet>,
 }
 
 #[instrument]

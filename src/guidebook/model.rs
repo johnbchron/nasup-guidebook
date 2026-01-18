@@ -10,6 +10,25 @@ pub struct GuidebookPagedResult<T> {
   pub results:  Vec<T>,
 }
 
+fn patch_field<T: std::fmt::Debug + Clone + PartialEq>(
+  intended: &Option<T>,
+  existing: &Option<T>,
+) -> Option<T> {
+  match (intended, existing) {
+    // not populated, so don't set
+    (None, _) => None,
+    // populated, so set
+    (Some(int), None) => Some(int.clone()),
+    // populated and correct, so don't set
+    (Some(int), Some(exi)) if int == exi => None,
+    // populated and incorrect, so set
+    (Some(int), Some(exi)) => {
+      warn!(intended = ?int, existing = ?exi, "patching incorrect field");
+      Some(int.clone())
+    }
+  }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GuidebookSession {
   /// The ID of the `Session`
@@ -80,25 +99,6 @@ pub struct GuidebookSession {
   pub max_capacity: Option<u32>,
 }
 
-fn patch_field<T: std::fmt::Debug + Clone + PartialEq>(
-  intended: &Option<T>,
-  existing: &Option<T>,
-) -> Option<T> {
-  match (intended, existing) {
-    // not populated, so don't set
-    (None, _) => None,
-    // populated, so set
-    (Some(int), None) => Some(int.clone()),
-    // populated and correct, so don't set
-    (Some(int), Some(exi)) if int == exi => None,
-    // populated and incorrect, so set
-    (Some(int), Some(exi)) => {
-      warn!(intended = ?int, existing = ?exi, "patching incorrect field");
-      Some(int.clone())
-    }
-  }
-}
-
 impl GuidebookSession {
   pub fn is_empty_patch(&self) -> bool {
     // not comparing id, guide_id, start_time, or import_id
@@ -159,6 +159,81 @@ impl GuidebookSession {
       ),
       waitlist: patch_field(&intended.waitlist, &existing.waitlist),
       max_capacity: patch_field(&intended.max_capacity, &existing.max_capacity),
+    }
+  }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GuidebookPresenter {
+  /// The ID of the `Session`
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub id:               Option<u32>,
+  /// The specific `Guide` your `Session` belongs to.
+  #[serde(rename = "guide")]
+  pub guide_id:         u32,
+  /// The title of your `Session`.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub name:             Option<String>,
+  /// A text description of the `Session`. This field has a 20,000 character
+  /// limit. This field supports basic HTML.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub description_html: Option<String>,
+  /// A short tagline thats displayed below the name of the name field.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub subtitle:         Option<String>,
+  /// A boolean value indicating if end-users can rate this `Session`.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub allow_rating:     Option<bool>,
+  /// A string field you can use to input your own identifier. This is for
+  /// when you have your own IDs for `Session`s in your data store.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub import_id:        Option<String>,
+  /// Array of IDs of `Location`s this `Session` should belong to.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub locations:        Option<Vec<u32>>,
+  /// An email for the item that users will be able to contact directly from
+  /// the app or Guidebook Web.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub contact_email:    Option<String>,
+}
+
+impl GuidebookPresenter {
+  pub fn is_empty_patch(&self) -> bool {
+    // not comparing id, guide_id, or import_id
+    self.name.is_none()
+      && self.description_html.is_none()
+      && self.subtitle.is_none()
+      && self.allow_rating.is_none()
+      && self.locations.is_none()
+      && self.contact_email.is_none()
+  }
+
+  pub fn generate_patch_diff(intended: &Self, existing: &Self) -> Self {
+    Self {
+      // ID can't be updated, and the difference here isn't meaningful
+      id:               None,
+      // guide_id can't be updated, and shouldn't
+      guide_id:         existing.guide_id,
+      name:             patch_field(
+        &intended.name.clone(),
+        &existing.name.clone(),
+      ),
+      description_html: patch_field(
+        &intended.description_html,
+        &existing.description_html,
+      ),
+      subtitle:         patch_field(&intended.subtitle, &existing.subtitle),
+      allow_rating:     patch_field(
+        &intended.allow_rating,
+        &existing.allow_rating,
+      ),
+      // guide_id can't be updated, and shouldn't
+      import_id:        existing.import_id.clone(),
+      locations:        patch_field(&intended.locations, &existing.locations),
+      contact_email:    patch_field(
+        &intended.contact_email,
+        &existing.contact_email,
+      ),
     }
   }
 }

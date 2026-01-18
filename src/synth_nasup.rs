@@ -22,7 +22,7 @@ pub struct NasupSession {
   pub approved_presenters: Vec<NasupPresenter>,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Hash, PartialEq, Eq)]
 pub struct NasupPresenter {
   pub name:               String,
   pub first_institution:  Option<String>,
