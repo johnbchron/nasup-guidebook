@@ -174,11 +174,6 @@ pub async fn create_guidebook_schedule_track(
     )
     .json(&schedule_track);
 
-  warn!(
-    payload = serde_json::to_string(&schedule_track).unwrap(),
-    "sending payload in schedule track creation request"
-  );
-
   trace!("sending guidebook request to create schedule track");
   let resp = req
     .send()

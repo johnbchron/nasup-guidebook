@@ -41,7 +41,7 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
         let hue = name_hash as f64 / (u64::MAX as f64 / 360.0);
         let color = colorutils_rs::Oklch {
           l: 0.7,
-          c: if s { 0.14 } else { 0.07 },
+          c: if s { 0.16 } else { 0.05 },
           h: hue as f32,
         }
         .to_rgb(colorutils_rs::TransferFunction::Srgb);
@@ -69,6 +69,7 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
 pub fn nasup_session_to_guidebook_session(
   config: &Config,
   nasup_session: NasupSession,
+  schedule_tracks: &[GuidebookScheduleTrack],
 ) -> miette::Result<GuidebookSession> {
   let discriminator_stripped_name =
     strip_session_discriminators_from_name(&nasup_session.title);
@@ -89,6 +90,29 @@ pub fn nasup_session_to_guidebook_session(
     .into_diagnostic()
     .context("failed to serialize session primary key into JSON")?;
 
+  let schedule_tracks_to_find = nasup_session
+    .strands
+    .into_iter()
+    .chain(nasup_session.intended_audience.into_iter());
+  let schedule_track_ids = schedule_tracks_to_find
+    .filter_map(|stn| {
+      match schedule_tracks
+        .iter()
+        .find(|st| st.name.as_ref().unwrap() == &stn)
+      {
+        Some(st) => Some(st.clone()),
+        None => {
+          warn!(name = stn, "failed to find schedule track with name");
+          None
+        }
+      }
+    })
+    .map(|st| {
+      st.id
+        .expect("expected schedule track to have its name field")
+    })
+    .collect();
+
   let session = GuidebookSession {
     id: None,
     guide_id: config.guide_id as u32,
@@ -101,7 +125,7 @@ pub fn nasup_session_to_guidebook_session(
     add_to_schedule: Some(true),
     import_id: Some(session_primary_key_json.clone()),
     locations: None,
-    schedule_tracks: None,
+    schedule_tracks: Some(schedule_track_ids),
     rank: Some(1.0),
     registration_start_date: None,
     registration_end_date: None,

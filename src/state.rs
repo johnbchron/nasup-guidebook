@@ -58,10 +58,13 @@ pub enum MasterState {
     sessions:               Vec<NasupSession>,
     strands_reconciliation: StrandsReconciliation,
   },
+  ExecutedStrandsReconciliation {
+    sessions:         Vec<NasupSession>,
+    existing_strands: Vec<GuidebookScheduleTrack>,
+  },
   FetchedGuidebookState {
     intended_sessions: Vec<GuidebookSession>,
     existing_sessions: Vec<GuidebookSession>,
-    existing_strands:  Vec<GuidebookScheduleTrack>,
   },
   CalculatedSessionReconciliation {
     session_reconciliation: SessionReconciliation,
@@ -165,27 +168,32 @@ impl MasterState {
              tracks",
           )?;
 
-        MasterState::FetchedGuidebookState {
-          intended_sessions: sessions
-            .into_iter()
-            .map(|ns| {
-              nasup_session_to_guidebook_session(config, ns)
-                .context("failed to convert nasup session to guidebook session")
-            })
-            .try_collect::<Vec<_>>()?,
-          existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
-            .await?,
-          existing_strands:  fetch_all_guidebook_entities(
+        MasterState::ExecutedStrandsReconciliation {
+          sessions,
+          existing_strands: fetch_all_guidebook_entities(
             config,
             "/schedule-tracks",
           )
           .await?,
         }
       }
+      MasterState::ExecutedStrandsReconciliation {
+        sessions,
+        existing_strands,
+      } => MasterState::FetchedGuidebookState {
+        intended_sessions: sessions
+          .into_iter()
+          .map(|ns| {
+            nasup_session_to_guidebook_session(config, ns, &existing_strands)
+              .context("failed to convert nasup session to guidebook session")
+          })
+          .try_collect::<Vec<_>>()?,
+        existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
+          .await?,
+      },
       MasterState::FetchedGuidebookState {
         intended_sessions,
         existing_sessions,
-        existing_strands,
       } => MasterState::CalculatedSessionReconciliation {
         session_reconciliation:
           reconcile_intended_and_existing_guidebook_sessions(
@@ -199,14 +207,12 @@ impl MasterState {
       MasterState::CalculatedSessionReconciliation {
         session_reconciliation,
       } => {
-        // session_reconciliation
-        //   .execute_reconciliation(config)
-        //   .await
-        //   .context(
-        //     "failed to reconcile intended and existing guidebook sessions",
-        //   )?;
-        // warn!("did not execute reconciliation: dry run");
-
+        session_reconciliation
+          .execute_reconciliation(config)
+          .await
+          .context(
+            "failed to reconcile intended and existing guidebook sessions",
+          )?;
         MasterState::ExecutedSessionReconciliation
       }
       MasterState::ExecutedSessionReconciliation => unreachable!(),

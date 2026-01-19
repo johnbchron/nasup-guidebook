@@ -1,5 +1,6 @@
 #![feature(iterator_try_collect)]
 #![feature(int_roundings)]
+#![feature(trim_prefix_suffix)]
 #![feature(pattern)]
 #![feature(iter_intersperse)]
 

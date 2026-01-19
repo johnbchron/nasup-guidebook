@@ -82,7 +82,8 @@ fn parse_nasup_strands_from_row(
   }
   let split_strands = strands
     .split(", ")
-    .map(ToOwned::to_owned)
+    // get rid of ", and FOO"
+    .map(|s| s.trim_prefix("and ").to_owned())
     .collect::<Vec<_>>();
   trace!(?split_strands, "found and split strands");
 
