@@ -27,6 +27,7 @@ pub enum MasterState {
   FetchedSheets {
     sessions_worksheet:  DecodedWorksheet,
     presenter_worksheet: DecodedWorksheet,
+    strands_worksheet:   DecodedWorksheet,
   },
   ParsedInputs {
     sessions:   Vec<ParsedNasupSession>,
@@ -68,10 +69,17 @@ impl MasterState {
         .context(
           "failed to get correct worksheet from presenter institutions sheet",
         )?,
+        strands_worksheet:   fetch_xlsx_from_google_sheets(
+          &config.spreadsheet_id_strands,
+        )
+        .await?
+        .get_worksheet("oa_export.xlsx")
+        .context("failed to get correct worksheet from strands spreadsheet")?,
       },
       MasterState::FetchedSheets {
         sessions_worksheet,
         presenter_worksheet,
+        strands_worksheet,
       } => MasterState::ParsedInputs {
         sessions:   parse_nasup_sessions_from_worksheet(sessions_worksheet)
           .context("failed to parse nasup session data from spreadsheet")?,

@@ -6,6 +6,7 @@ pub struct Config {
   pub api_key: String,
   pub spreadsheet_id_sessions: String,
   pub spreadsheet_id_presenter_institutions: String,
+  pub spreadsheet_id_strands: String,
 }
 
 impl Config {
@@ -29,12 +30,16 @@ impl Config {
       std::env::var("SPREADSHEET_ID_PRESENTER_INSTITUTIONS")
         .into_diagnostic()
         .context("missing `SPREADSHEET_ID_PRESENTER_INSTITUTIONS` env var")?;
+    let spreadsheet_id_strands = std::env::var("SPREADSHEET_ID_STRANDS")
+      .into_diagnostic()
+      .context("missing `SPREADSHEET_ID_STRANDS` env var")?;
 
     Ok(Self {
       guide_id,
       api_key,
       spreadsheet_id_sessions,
       spreadsheet_id_presenter_institutions,
+      spreadsheet_id_strands,
     })
   }
 }

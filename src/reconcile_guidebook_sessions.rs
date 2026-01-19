@@ -134,7 +134,7 @@ pub fn reconcile_intended_and_existing_guidebook_sessions(
     .collect::<Vec<_>>();
 
   Ok(SessionReconciliation {
-    orphaned_existing_import_ids,
+    _orphaned_existing_import_ids: orphaned_existing_import_ids,
     sessions_to_create,
     sessions_to_update,
   })
