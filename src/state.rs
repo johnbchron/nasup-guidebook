@@ -62,7 +62,7 @@ pub enum MasterState {
     sessions:         Vec<NasupSession>,
     existing_strands: Vec<GuidebookScheduleTrack>,
   },
-  FetchedGuidebookState {
+  FetchedGuidebookSessionState {
     intended_sessions: Vec<GuidebookSession>,
     existing_sessions: Vec<GuidebookSession>,
   },
@@ -186,7 +186,7 @@ impl MasterState {
       MasterState::ExecutedStrandsReconciliation {
         sessions,
         existing_strands,
-      } => MasterState::FetchedGuidebookState {
+      } => MasterState::FetchedGuidebookSessionState {
         intended_sessions: sessions
           .into_iter()
           .map(|ns| {
@@ -198,7 +198,7 @@ impl MasterState {
           .await?,
       },
 
-      MasterState::FetchedGuidebookState {
+      MasterState::FetchedGuidebookSessionState {
         intended_sessions,
         existing_sessions,
       } => MasterState::CalculatedSessionReconciliation {
