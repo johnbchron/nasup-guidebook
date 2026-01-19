@@ -102,6 +102,7 @@ impl MasterState {
         .get_worksheet("oa_export.xlsx")
         .context("failed to get correct worksheet from strands spreadsheet")?,
       },
+
       MasterState::FetchedSheets {
         sessions_worksheet,
         presenter_worksheet,
@@ -118,6 +119,7 @@ impl MasterState {
         strands:    parse_nasup_strands_from_worksheet(strands_worksheet)
           .context("failed to parse nasup strands data from spreadsheet")?,
       },
+
       MasterState::ParsedInputs {
         sessions,
         presenters,
@@ -126,6 +128,7 @@ impl MasterState {
         sessions: synthesize_parsed_nasup_data(sessions, presenters, strands)
           .context("failed to synthesize nasup data")?,
       },
+
       MasterState::SynthesizedInputs { sessions } => {
         MasterState::FetchedStrandsState {
           sessions:         sessions.clone(),
@@ -140,6 +143,7 @@ impl MasterState {
           .await?,
         }
       }
+
       MasterState::FetchedStrandsState {
         sessions,
         intended_strands,
@@ -156,6 +160,7 @@ impl MasterState {
              tracks",
           )?,
       },
+
       MasterState::CalculatedStrandsReconciliation {
         sessions,
         strands_reconciliation,
@@ -177,6 +182,7 @@ impl MasterState {
           .await?,
         }
       }
+
       MasterState::ExecutedStrandsReconciliation {
         sessions,
         existing_strands,
@@ -191,6 +197,7 @@ impl MasterState {
         existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
           .await?,
       },
+
       MasterState::FetchedGuidebookState {
         intended_sessions,
         existing_sessions,
@@ -204,6 +211,7 @@ impl MasterState {
             "failed to reconcile intended and existing guidebook sessions",
           )?,
       },
+
       MasterState::CalculatedSessionReconciliation {
         session_reconciliation,
       } => {
@@ -215,6 +223,7 @@ impl MasterState {
           )?;
         MasterState::ExecutedSessionReconciliation
       }
+
       MasterState::ExecutedSessionReconciliation => unreachable!(),
     };
 
