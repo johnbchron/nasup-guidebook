@@ -1,10 +1,10 @@
 pub mod model;
 
 use miette::{Context, IntoDiagnostic};
-use serde::Deserialize;
-use tracing::{debug, error, instrument, trace, warn};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, error, instrument, trace};
 
-use self::model::{GuidebookScheduleTrack, GuidebookSession};
+use self::model::GuidebookScheduleTrack;
 use crate::{HTTP_CLIENT, config::Config};
 
 const GUIDEBOOK_BASE_URL: &str = "https://builder.guidebook.com/open-api/v1.1";
@@ -14,34 +14,51 @@ async fn fetch_page_of_guidebook_entities<T: for<'a> Deserialize<'a>>(
   config: &Config,
   url: &str,
 ) -> miette::Result<model::GuidebookPagedResult<T>> {
-  let req = HTTP_CLIENT.get(url).header(
-    "Authorization",
-    format!("JWT {api_key}", api_key = config.api_key),
-  );
-  trace!("sending guidebook request to list sessions");
+  let req = HTTP_CLIENT
+    .get(url)
+    .header(
+      "Authorization",
+      format!("JWT {api_key}", api_key = config.api_key),
+    )
+    .query(&[("guide", &config.guide_id.to_string())]);
+
+  trace!("sending guidebook request to list entities");
   let resp = req
     .send()
     .await
     .into_diagnostic()
-    .context("failed to send request to fetch guidebook sessions")?
+    .context("failed to send request to fetch guidebook entities")?
     .error_for_status()
     .into_diagnostic()
     .context(
-      "got server error response from response to list guidebook sessions",
+      "got server error response from response to list guidebook entities",
     )?;
   trace!(
     content_length = resp.content_length(),
-    "got successful response from session listing request"
+    "got successful response from entity listing request"
   );
+
   let payload = resp
-    .json::<model::GuidebookPagedResult<T>>()
+    .text()
     .await
     .into_diagnostic()
-    .context("failed to read guidebook session listing response as JSON")?;
+    .context("failed to read guidebook entity listing response body")?;
+
+  let jd = &mut serde_json::Deserializer::from_str(&payload);
+  let payload: model::GuidebookPagedResult<T> =
+    serde_path_to_error::deserialize(jd)
+      .into_diagnostic()
+      .context("failed to parse guidebook entity listing response body as type")
+      .inspect_err(|_| {
+        error!(
+          payload,
+          "failed to parse guidebook entity listing response body as type"
+        );
+      })?;
   trace!(
     response_count = payload.results.len(),
     total_count = payload.count,
-    "parsed session listing response"
+    "parsed entity listing response"
   );
 
   Ok(payload)
@@ -53,15 +70,12 @@ pub async fn fetch_all_guidebook_entities<T: for<'a> Deserialize<'a>>(
   url: &str,
 ) -> miette::Result<Vec<T>> {
   let mut results = Vec::new();
-  let mut url = format!(
-    "{GUIDEBOOK_BASE_URL}{url}/?guide={guide}",
-    guide = config.guide_id
-  );
+  let mut url = format!("{GUIDEBOOK_BASE_URL}{url}");
 
   loop {
     let payload = fetch_page_of_guidebook_entities(config, &url)
       .await
-      .context("failed to fetch page of guidebook sessions")?;
+      .context("failed to fetch page of guidebook entities")?;
 
     results.extend(payload.results);
 
@@ -72,54 +86,53 @@ pub async fn fetch_all_guidebook_entities<T: for<'a> Deserialize<'a>>(
     }
   }
 
-  debug!(count = results.len(), "fetched guidebook sessions");
+  debug!(count = results.len(), "fetched guidebook entities");
 
   Ok(results)
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum SessionModification {
+pub enum Modification {
   Create,
-  Update,
+  Update { id: u32 },
 }
 
-#[instrument(
-  skip(config, session),
-  fields(session_id = session.id, import_id = session.import_id, url)
-)]
-pub async fn upsert_guidebook_session(
+#[instrument(skip(config, entity), fields(url))]
+pub async fn upsert_guidebook_entity<T: Serialize + for<'a> Deserialize<'a>>(
   config: &Config,
-  session: GuidebookSession,
-  modification: SessionModification,
-) -> miette::Result<GuidebookSession> {
+  entity: T,
+  url: &str,
+  modification: Modification,
+) -> miette::Result<T> {
   let url = match modification {
-    SessionModification::Create => format!("{GUIDEBOOK_BASE_URL}/sessions/"),
-    SessionModification::Update => {
-      let session_id = session.id.ok_or(miette::miette!(
-        "ID field of guidebook session was unpopulated, cannot form URL"
-      ))?;
-      format!("{GUIDEBOOK_BASE_URL}/sessions/{session_id}")
+    Modification::Create => format!("{GUIDEBOOK_BASE_URL}{url}"),
+    Modification::Update { id } => {
+      format!("{GUIDEBOOK_BASE_URL}{url}/{id}", url = url.trim_suffix("/"))
     }
   };
   tracing::Span::current().record("url", &url);
 
   let req = match modification {
-    SessionModification::Create => HTTP_CLIENT.post(&url),
-    SessionModification::Update => HTTP_CLIENT.patch(&url),
+    Modification::Create => HTTP_CLIENT.post(&url),
+    Modification::Update { id: _ } => HTTP_CLIENT.patch(&url),
   };
   let req = req
     .header(
       "Authorization",
       format!("JWT {api_key}", api_key = config.api_key),
     )
-    .json(&session);
+    .query(&[("guide", &config.guide_id.to_string())])
+    .json(&entity);
 
-  trace!("sending guidebook request to modify session");
+  trace!(
+    payload = serde_json::to_string(&entity).unwrap(),
+    "sending guidebook request to modify entity"
+  );
   let resp = req
     .send()
     .await
     .into_diagnostic()
-    .context("failed to send request to modify guidebook session")?;
+    .context("failed to send request to modify guidebook entity")?;
 
   // extract error before consuming body
   let server_error = resp
@@ -127,11 +140,11 @@ pub async fn upsert_guidebook_session(
     .map(|_| ())
     .into_diagnostic()
     .context(
-      "got server error response from guidebook session modification request",
+      "got server error response from guidebook entity modification request",
     );
   let content_length = resp.content_length();
   let payload = resp.text().await.into_diagnostic().context(
-    "failed to consume body of response from guidebook session modification \
+    "failed to consume body of response from guidebook entity modification \
      request",
   )?;
 
@@ -139,21 +152,25 @@ pub async fn upsert_guidebook_session(
   if let Err(e) = server_error {
     error!(
       payload,
-      "got error response from session modification request"
+      "got error response from entity modification request"
     );
     let () = Err(e)?;
   }
   trace!(
     content_length,
-    "got successful response from session modification request"
+    "got successful response from entity modification request"
   );
 
-  let payload = serde_json::from_str::<GuidebookSession>(&payload)
+  let payload = serde_json::from_str::<T>(&payload)
     .into_diagnostic()
-    .context(
-      "failed to read guidebook session modification response as JSON",
-    )?;
-  trace!("parsed session modification response");
+    .context("failed to read guidebook entity modification response as JSON")
+    .inspect_err(|_| {
+      error!(
+        payload,
+        "failed to deserialize payload of entity modification response"
+      );
+    })?;
+  trace!("parsed entity modification response");
 
   Ok(payload)
 }

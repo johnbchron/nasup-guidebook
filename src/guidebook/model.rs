@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -67,10 +69,10 @@ pub struct GuidebookSession {
   pub import_id: Option<String>,
   /// Array of IDs of `Location`s this `Session` should belong to.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub locations: Option<Vec<u32>>,
+  pub locations: Option<HashSet<u32>>,
   /// Array of IDs of `ScheduleTracks` this `Session` should belong to.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub schedule_tracks: Option<Vec<u32>>,
+  pub schedule_tracks: Option<HashSet<u32>>,
   /// The order the `Session` will appear.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub rank: Option<f32>,
@@ -190,7 +192,7 @@ pub struct GuidebookPresenter {
   pub import_id:        Option<String>,
   /// Array of IDs of `Location`s this `Session` should belong to.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub locations:        Option<Vec<u32>>,
+  pub locations:        Option<HashSet<u32>>,
   /// An email for the item that users will be able to contact directly from
   /// the app or Guidebook Web.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -199,10 +201,10 @@ pub struct GuidebookPresenter {
 
 impl GuidebookPresenter {
   pub fn is_empty_patch(&self) -> bool {
-    // not comparing id, guide_id, or import_id
+    // not comparing id, guide_id, description_html, or import_id
     self.name.is_none()
-      && self.description_html.is_none()
-      && self.subtitle.is_none()
+      && self.description_html.as_ref().is_none_or(String::is_empty)
+      && self.subtitle.as_ref().is_none_or(String::is_empty)
       && self.allow_rating.is_none()
       && self.locations.is_none()
       && self.contact_email.is_none()
@@ -211,17 +213,14 @@ impl GuidebookPresenter {
   pub fn generate_patch_diff(intended: &Self, existing: &Self) -> Self {
     Self {
       // ID can't be updated, and the difference here isn't meaningful
-      id:               None,
+      id:               existing.id,
       // guide_id can't be updated, and shouldn't
       guide_id:         existing.guide_id,
       name:             patch_field(
         &intended.name.clone(),
         &existing.name.clone(),
       ),
-      description_html: patch_field(
-        &intended.description_html,
-        &existing.description_html,
-      ),
+      description_html: intended.description_html.clone(),
       subtitle:         patch_field(&intended.subtitle, &existing.subtitle),
       allow_rating:     patch_field(
         &intended.allow_rating,

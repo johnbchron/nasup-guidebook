@@ -7,10 +7,10 @@ use crate::{
   fetch_sheet::{DecodedWorksheet, fetch_xlsx_from_google_sheets},
   guidebook::{
     fetch_all_guidebook_entities,
-    model::{GuidebookScheduleTrack, GuidebookSession},
+    model::{GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession},
   },
   nasup_to_guidebook::{
-    nasup_session_to_guidebook_session,
+    nasup_session_to_guidebook_session, nasup_sessions_to_guidebook_presenters,
     nasup_sessions_to_guidebook_schedule_tracks,
   },
   parse_nasup::{
@@ -21,6 +21,10 @@ use crate::{
     parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet,
     parse_sessions::parse_nasup_sessions_from_worksheet,
     parse_strands::parse_nasup_strands_from_worksheet,
+  },
+  reconcile_guidebook_presenters::{
+    PresenterReconciliation,
+    reconcile_intended_and_existing_guidebook_presenters,
   },
   reconcile_guidebook_sessions::{
     SessionReconciliation, reconcile_intended_and_existing_guidebook_sessions,
@@ -61,6 +65,22 @@ pub enum MasterState {
   ExecutedStrandsReconciliation {
     sessions:         Vec<NasupSession>,
     existing_strands: Vec<GuidebookScheduleTrack>,
+  },
+  FetchedGuidebookPresenterState {
+    sessions:            Vec<NasupSession>,
+    existing_strands:    Vec<GuidebookScheduleTrack>,
+    intended_presenters: Vec<GuidebookPresenter>,
+    existing_presenters: Vec<GuidebookPresenter>,
+  },
+  CalculatedPresenterReconciliation {
+    sessions:                 Vec<NasupSession>,
+    existing_strands:         Vec<GuidebookScheduleTrack>,
+    presenter_reconciliation: PresenterReconciliation,
+  },
+  ExecutedPresenterReconciliation {
+    sessions:            Vec<NasupSession>,
+    existing_strands:    Vec<GuidebookScheduleTrack>,
+    existing_presenters: Vec<GuidebookPresenter>,
   },
   FetchedGuidebookSessionState {
     intended_sessions: Vec<GuidebookSession>,
@@ -186,6 +206,83 @@ impl MasterState {
       MasterState::ExecutedStrandsReconciliation {
         sessions,
         existing_strands,
+      } => MasterState::FetchedGuidebookPresenterState {
+        sessions: sessions.clone(),
+        existing_strands,
+        intended_presenters: nasup_sessions_to_guidebook_presenters(
+          config, &sessions,
+        )
+        .context("failed to extract nasup presenters from nasup sessions")?,
+        existing_presenters: fetch_all_guidebook_entities(
+          config,
+          &format!(
+            "/custom-list-items/?custom_lists={list_id}",
+            list_id = config.presenter_custom_list_id
+          ),
+        )
+        .await?,
+      },
+      // MasterState::ExecutedStrandsReconciliation {
+      //   sessions,
+      //   existing_strands,
+      // } => MasterState::FetchedGuidebookSessionState {
+      //   intended_sessions: sessions
+      //     .into_iter()
+      //     .map(|ns| {
+      //       nasup_session_to_guidebook_session(config, ns, &existing_strands)
+      //         .context("failed to convert nasup session to guidebook
+      // session")     })
+      //     .try_collect::<Vec<_>>()?,
+      //   existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
+      //     .await?,
+      // },
+      MasterState::FetchedGuidebookPresenterState {
+        sessions,
+        existing_strands,
+        intended_presenters,
+        existing_presenters,
+      } => MasterState::CalculatedPresenterReconciliation {
+        sessions,
+        existing_strands,
+        presenter_reconciliation:
+          reconcile_intended_and_existing_guidebook_presenters(
+            &intended_presenters,
+            &existing_presenters,
+          )
+          .context(
+            "failed to reconcile intended and existing guidebook presenters",
+          )?,
+      },
+
+      MasterState::CalculatedPresenterReconciliation {
+        sessions,
+        existing_strands,
+        presenter_reconciliation,
+      } => {
+        presenter_reconciliation
+          .execute_reconciliation(config)
+          .await
+          .context(
+            "failed to reconcile intended and existing guidebook presenters",
+          )?;
+        MasterState::ExecutedPresenterReconciliation {
+          sessions,
+          existing_strands,
+          existing_presenters: fetch_all_guidebook_entities(
+            config,
+            &format!(
+              "/custom-list-items/?custom_lists={list_id}",
+              list_id = config.presenter_custom_list_id
+            ),
+          )
+          .await?,
+        }
+      }
+
+      MasterState::ExecutedPresenterReconciliation {
+        sessions,
+        existing_strands,
+        existing_presenters,
       } => MasterState::FetchedGuidebookSessionState {
         intended_sessions: sessions
           .into_iter()

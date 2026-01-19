@@ -65,7 +65,7 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
   )
 }
 
-#[instrument(skip(config, nasup_session))]
+#[instrument(skip(config, nasup_session, schedule_tracks))]
 pub fn nasup_session_to_guidebook_session(
   config: &Config,
   nasup_session: NasupSession,
@@ -142,6 +142,19 @@ pub fn nasup_session_to_guidebook_session(
   Ok(session)
 }
 
+pub fn nasup_sessions_to_guidebook_presenters(
+  config: &Config,
+  nasup_sessions: &[NasupSession],
+) -> miette::Result<Vec<GuidebookPresenter>> {
+  nasup_sessions
+    .iter()
+    .flat_map(|s| s.approved_presenters.clone().into_iter())
+    .collect::<HashSet<_>>()
+    .into_iter()
+    .map(|p| nasup_presenter_to_guidebook_presenter(config, p))
+    .try_collect::<Vec<_>>()
+}
+
 pub fn nasup_presenter_to_guidebook_presenter(
   config: &Config,
   nasup_presenter: NasupPresenter,
@@ -158,7 +171,7 @@ pub fn nasup_presenter_to_guidebook_presenter(
     id:               None,
     guide_id:         config.guide_id as u32,
     name:             Some(nasup_presenter.name),
-    description_html: None,
+    description_html: Some("".to_owned()),
     subtitle:         Some(subtitle),
     allow_rating:     None,
     import_id:        None,

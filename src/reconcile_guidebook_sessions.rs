@@ -23,10 +23,11 @@ impl SessionReconciliation {
         import_id = session.import_id.as_ref().unwrap(),
         "creating guidebook session"
       );
-      crate::guidebook::upsert_guidebook_session(
+      crate::guidebook::upsert_guidebook_entity(
         config,
         session.clone(),
-        crate::guidebook::SessionModification::Create,
+        "/sessions",
+        crate::guidebook::Modification::Create,
       )
       .await
       .context("failed to create session during reconciliation")?;
@@ -41,10 +42,13 @@ impl SessionReconciliation {
         import_id = session.import_id.as_ref().unwrap(),
         "updating guidebook session"
       );
-      crate::guidebook::upsert_guidebook_session(
+      crate::guidebook::upsert_guidebook_entity(
         config,
         session.clone(),
-        crate::guidebook::SessionModification::Update,
+        "/sessions",
+        crate::guidebook::Modification::Update {
+          id: session.id.unwrap(),
+        },
       )
       .await
       .context("failed to update session during reconciliation")?;
