@@ -112,3 +112,11 @@ pub struct ParsedNasupSession {
   pub description:  String,
   pub presenters:   Vec<ParsedNasupPresenterWithPaymentStatus>,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ParsedNasupStrandsAndIntendedAudience {
+  pub title:             String,
+  pub presenters:        Vec<String>,
+  pub strands:           Vec<String>,
+  pub intended_audience: Vec<String>,
+}

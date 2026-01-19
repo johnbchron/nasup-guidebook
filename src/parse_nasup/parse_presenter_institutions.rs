@@ -5,7 +5,10 @@ use miette::bail;
 use tracing::{debug, trace, warn};
 
 use super::parse_model::ParsedNasupPresenterWithInstitutionBySession;
-use crate::fetch_sheet::DecodedWorksheet;
+use crate::{
+  fetch_sheet::DecodedWorksheet,
+  parse_nasup::find_commas_without_following_whitespace,
+};
 
 pub fn parse_nasup_presenter_institutions_from_worksheet(
   worksheet: DecodedWorksheet,
@@ -34,7 +37,7 @@ fn parse_nasup_presenter_institutions_from_row(
     "failed to parse XLSX row as NASUP presenter-institutions: row is empty"
   );
   miette::ensure!(
-    row.len() >= 9,
+    row.len() >= 4,
     format!(
       "failed to parse XLSX row as NASUP presenter-institutions: too few \
        cells: expected >= 4, got {}",
@@ -104,18 +107,4 @@ fn parse_nasup_presenter_institutions_from_row(
   }
 
   Ok(results)
-}
-
-fn find_commas_without_following_whitespace(text: &str) -> Vec<usize> {
-  text
-    .char_indices()
-    .zip(text.chars().skip(1))
-    .filter_map(|((i, c), next)| {
-      if c == ',' && !next.is_whitespace() {
-        Some(i)
-      } else {
-        None
-      }
-    })
-    .collect()
 }

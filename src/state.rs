@@ -10,9 +10,11 @@ use crate::{
   parse_nasup::{
     parse_model::{
       ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
+      ParsedNasupStrandsAndIntendedAudience,
     },
     parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet,
     parse_sessions::parse_nasup_sessions_from_worksheet,
+    parse_strands::parse_nasup_strands_from_worksheet,
   },
   reconcile_guidebook_sessions::{
     SessionReconciliation, reconcile_intended_and_existing_guidebook_sessions,
@@ -32,6 +34,7 @@ pub enum MasterState {
   ParsedInputs {
     sessions:   Vec<ParsedNasupSession>,
     presenters: Vec<ParsedNasupPresenterWithInstitutionBySession>,
+    strands:    Vec<ParsedNasupStrandsAndIntendedAudience>,
   },
   SynthesizedInputs {
     sessions: Vec<NasupSession>,
@@ -89,12 +92,15 @@ impl MasterState {
         .context(
           "failed to parse nasup presenter institution data from spreadsheet",
         )?,
+        strands:    parse_nasup_strands_from_worksheet(strands_worksheet)
+          .context("failed to parse nasup strands data from spreadsheet")?,
       },
       MasterState::ParsedInputs {
         sessions,
         presenters,
+        strands,
       } => MasterState::SynthesizedInputs {
-        sessions: synthesize_parsed_nasup_data(sessions, presenters)
+        sessions: synthesize_parsed_nasup_data(sessions, presenters, strands)
           .context("failed to synthesize nasup data")?,
       },
       MasterState::SynthesizedInputs { sessions } => {
@@ -125,12 +131,12 @@ impl MasterState {
       MasterState::CalculatedReconciliation {
         session_reconciliation,
       } => {
-        session_reconciliation
-          .execute_reconciliation(config)
-          .await
-          .context(
-            "failed to reconcile intended and existing guidebook sessions",
-          )?;
+        // session_reconciliation
+        //   .execute_reconciliation(config)
+        //   .await
+        //   .context(
+        //     "failed to reconcile intended and existing guidebook sessions",
+        //   )?;
         // warn!("did not execute reconciliation: dry run");
 
         MasterState::ExecutedReconciliation

@@ -7,7 +7,7 @@ use tracing::{debug, warn};
 
 use crate::parse_nasup::parse_model::{
   ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
-  ParsedNasupSessionType,
+  ParsedNasupSessionType, ParsedNasupStrandsAndIntendedAudience,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -20,6 +20,8 @@ pub struct NasupSession {
   pub description:         String,
   /// Only presenters that have paid are included here.
   pub approved_presenters: Vec<NasupPresenter>,
+  pub strands:             Vec<String>,
+  pub intended_audience:   Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Hash, PartialEq, Eq)]
@@ -34,6 +36,7 @@ pub fn synthesize_parsed_nasup_data(
   parsed_presenter_institutions: Vec<
     ParsedNasupPresenterWithInstitutionBySession,
   >,
+  parsed_strands: Vec<ParsedNasupStrandsAndIntendedAudience>,
 ) -> miette::Result<Vec<NasupSession>> {
   let mut synthesized_sessions = Vec::new();
 
@@ -112,6 +115,43 @@ pub fn synthesize_parsed_nasup_data(
       }
     }
 
+    let relevant_strands_records = parsed_strands
+      .iter()
+      .filter(|r| r.title == session_name_search_query)
+      .cloned()
+      .collect::<Vec<_>>();
+
+    if relevant_strands_records.is_empty() {
+      warn!(
+        session = session_name_search_query,
+        "found no strands records with given session title"
+      );
+    }
+    if relevant_strands_records.len() > 1 {
+      warn!(
+        session = session_name_search_query,
+        "found more than one strands record with given session title"
+      );
+    }
+
+    let strands = relevant_strands_records
+      .iter()
+      .flat_map(|r| r.strands.iter())
+      .cloned()
+      .collect();
+    let intended_audience = relevant_strands_records
+      .iter()
+      .flat_map(|r| r.intended_audience.iter())
+      .cloned()
+      .collect();
+
+    debug!(
+      ?strands,
+      ?intended_audience,
+      session = session_name_search_query,
+      "found strands for session"
+    );
+
     let synthesized_session = NasupSession {
       start_datetime,
       end_datetime,
@@ -120,6 +160,8 @@ pub fn synthesize_parsed_nasup_data(
       title: parsed_session.title,
       description: parsed_session.description,
       approved_presenters,
+      strands,
+      intended_audience,
     };
 
     debug!("synthesized full session record: {synthesized_session:#?}");
