@@ -1,13 +1,69 @@
+use std::{
+  collections::HashSet,
+  hash::{DefaultHasher, Hash, Hasher},
+};
+
 use miette::{Context, IntoDiagnostic};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, warn};
 
 use crate::{
   config::Config,
-  guidebook::model::{GuidebookPresenter, GuidebookSession},
+  guidebook::model::{
+    GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession,
+  },
   synth_nasup::{
     NasupPresenter, NasupSession, strip_session_discriminators_from_name,
   },
 };
+
+pub fn nasup_sessions_to_guidebook_schedule_tracks(
+  config: &Config,
+  nasup_sessions: &[NasupSession],
+) -> miette::Result<Vec<GuidebookScheduleTrack>> {
+  let strands = nasup_sessions
+    .iter()
+    .flat_map(|s| s.strands.clone().into_iter())
+    .collect::<HashSet<_>>();
+  let intended_audiences = nasup_sessions
+    .iter()
+    .flat_map(|s| s.intended_audience.clone().into_iter())
+    .collect::<HashSet<_>>();
+
+  Ok(
+    strands
+      .into_iter()
+      .map(|n| (true, n))
+      .chain(intended_audiences.into_iter().map(|n| (false, n)))
+      .map(|(s, n)| {
+        let mut hasher = DefaultHasher::new();
+        n.hash(&mut hasher);
+        let name_hash = hasher.finish();
+        let hue = name_hash as f64 / (u64::MAX as f64 / 360.0);
+        let color = colorutils_rs::Oklch {
+          l: 0.7,
+          c: if s { 0.14 } else { 0.07 },
+          h: hue as f32,
+        }
+        .to_rgb(colorutils_rs::TransferFunction::Srgb);
+        let color = format!(
+          "#{r:02X}{g:02X}{b:02X}",
+          r = color.r,
+          g = color.g,
+          b = color.b
+        );
+
+        GuidebookScheduleTrack {
+          id:               None,
+          guide_id:         config.guide_id as u32,
+          name:             Some(n.clone()),
+          description_html: None,
+          color:            Some(color),
+          import_id:        None,
+        }
+      })
+      .collect(),
+  )
+}
 
 #[instrument(skip(config, nasup_session))]
 pub fn nasup_session_to_guidebook_session(

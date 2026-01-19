@@ -9,6 +9,7 @@ mod guidebook;
 mod nasup_to_guidebook;
 mod parse_nasup;
 mod reconcile_guidebook_sessions;
+mod reconcile_guidebook_strands;
 mod state;
 mod synth_nasup;
 

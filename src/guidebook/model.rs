@@ -165,13 +165,13 @@ impl GuidebookSession {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GuidebookPresenter {
-  /// The ID of the `Session`
+  /// The ID of the `Presenter`
   #[serde(skip_serializing_if = "Option::is_none")]
   pub id:               Option<u32>,
-  /// The specific `Guide` your `Session` belongs to.
+  /// The specific `Guide` your `Presenter` belongs to.
   #[serde(rename = "guide")]
   pub guide_id:         u32,
-  /// The title of your `Session`.
+  /// The title of your `Presenter`.
   #[serde(skip_serializing_if = "Option::is_none")]
   pub name:             Option<String>,
   /// A text description of the `Session`. This field has a 20,000 character
@@ -236,4 +236,29 @@ impl GuidebookPresenter {
       ),
     }
   }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GuidebookScheduleTrack {
+  /// The ID of the `ScheduleTrack`
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub id:               Option<u32>,
+  /// The specific `Guide` your `ScheduleTrack` belongs to.
+  #[serde(rename = "guide")]
+  pub guide_id:         u32,
+  /// The title of your `Session`.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub name:             Option<String>,
+  /// A text description of the `Session`. This field has a 20,000 character
+  /// limit. This field supports basic HTML.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub description_html: Option<String>,
+  /// Hex value of the color you want this track to be. Used for highlighting
+  /// sessions in the app. Example: “#000080” for blue.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub color:            Option<String>,
+  /// A string field you can use to input your own identifier. This is for
+  /// when you have your own IDs for `Session`s in your data store.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub import_id:        Option<String>,
 }
