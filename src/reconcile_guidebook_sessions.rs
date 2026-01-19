@@ -7,9 +7,9 @@ use crate::{config::Config, guidebook::model::GuidebookSession};
 
 #[derive(Debug)]
 pub struct SessionReconciliation {
-  pub orphaned_existing_import_ids: HashSet<String>,
-  pub sessions_to_create:           Vec<GuidebookSession>,
-  pub sessions_to_update:           Vec<GuidebookSession>,
+  pub _orphaned_existing_import_ids: HashSet<String>,
+  pub sessions_to_create:            Vec<GuidebookSession>,
+  pub sessions_to_update:            Vec<GuidebookSession>,
 }
 
 impl SessionReconciliation {

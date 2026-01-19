@@ -1,6 +1,6 @@
 use kinded::Kinded;
 use miette::Context;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::{
   config::Config,
@@ -115,15 +115,15 @@ impl MasterState {
           )?,
       },
       MasterState::CalculatedReconciliation {
-        session_reconciliation: _,
+        session_reconciliation,
       } => {
-        // session_reconciliation
-        //   .execute_reconciliation(config)
-        //   .await
-        //   .context(
-        //     "failed to reconcile intended and existing guidebook sessions",
-        //   )?;
-        warn!("did not execute reconciliation: dry run");
+        session_reconciliation
+          .execute_reconciliation(config)
+          .await
+          .context(
+            "failed to reconcile intended and existing guidebook sessions",
+          )?;
+        // warn!("did not execute reconciliation: dry run");
 
         MasterState::ExecutedReconciliation
       }
