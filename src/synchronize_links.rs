@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use miette::Context;
+use tracing::debug;
 
 use crate::{
   config::Config,
@@ -84,6 +85,7 @@ pub async fn synchronize_session_links(
     delete_guidebook_entity(config, "/links", link_id)
       .await
       .context("failed to delete link during synchronization")?;
+    debug!(link_id, "deleted session link");
   }
 
   // now to create outbound links
@@ -105,6 +107,10 @@ pub async fn synchronize_session_links(
     .context(
       "failed to create outbound link from session during synchronization",
     )?;
+    debug!(
+      source_session_id,
+      target_presenter_id, "added outbound link from session to presenter"
+    );
   }
 
   // now to create inbound links
@@ -126,6 +132,10 @@ pub async fn synchronize_session_links(
     .context(
       "failed to create outbound link from session during synchronization",
     )?;
+    debug!(
+      source_presenter_id,
+      target_session_id, "added inbound link from presenter to session"
+    );
   }
 
   Ok(())
