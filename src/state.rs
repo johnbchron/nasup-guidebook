@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use kinded::Kinded;
 use miette::Context;
 use tracing::info;
@@ -10,7 +12,8 @@ use crate::{
     model::{GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession},
   },
   nasup_to_guidebook::{
-    nasup_session_to_guidebook_session, nasup_sessions_to_guidebook_presenters,
+    WithLinks, nasup_session_to_guidebook_session,
+    nasup_sessions_to_guidebook_presenters,
     nasup_sessions_to_guidebook_schedule_tracks,
   },
   parse_nasup::{
@@ -85,6 +88,7 @@ pub enum MasterState {
   FetchedGuidebookSessionState {
     intended_sessions: Vec<GuidebookSession>,
     existing_sessions: Vec<GuidebookSession>,
+    intended_link_map: HashMap<String, Vec<u32>>,
   },
   CalculatedSessionReconciliation {
     session_reconciliation: SessionReconciliation,
@@ -222,20 +226,7 @@ impl MasterState {
         )
         .await?,
       },
-      // MasterState::ExecutedStrandsReconciliation {
-      //   sessions,
-      //   existing_strands,
-      // } => MasterState::FetchedGuidebookSessionState {
-      //   intended_sessions: sessions
-      //     .into_iter()
-      //     .map(|ns| {
-      //       nasup_session_to_guidebook_session(config, ns, &existing_strands)
-      //         .context("failed to convert nasup session to guidebook
-      // session")     })
-      //     .try_collect::<Vec<_>>()?,
-      //   existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
-      //     .await?,
-      // },
+
       MasterState::FetchedGuidebookPresenterState {
         sessions,
         existing_strands,
@@ -283,21 +274,40 @@ impl MasterState {
         sessions,
         existing_strands,
         existing_presenters,
-      } => MasterState::FetchedGuidebookSessionState {
-        intended_sessions: sessions
+      } => {
+        let intended_sessions = sessions
           .into_iter()
           .map(|ns| {
-            nasup_session_to_guidebook_session(config, ns, &existing_strands)
-              .context("failed to convert nasup session to guidebook session")
+            nasup_session_to_guidebook_session(
+              config,
+              ns,
+              &existing_strands,
+              &existing_presenters,
+            )
+            .context("failed to convert nasup session to guidebook session")
           })
-          .try_collect::<Vec<_>>()?,
-        existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
-          .await?,
-      },
+          .try_collect::<Vec<_>>()?;
+        let mut import_id_to_links_map = HashMap::new();
+        let intended_sessions = intended_sessions
+          .into_iter()
+          .map(|WithLinks(s, links)| {
+            import_id_to_links_map.insert(s.import_id.clone().unwrap(), links);
+            s
+          })
+          .collect();
+
+        MasterState::FetchedGuidebookSessionState {
+          intended_sessions,
+          existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
+            .await?,
+          intended_link_map: import_id_to_links_map,
+        }
+      }
 
       MasterState::FetchedGuidebookSessionState {
         intended_sessions,
         existing_sessions,
+        intended_link_map,
       } => MasterState::CalculatedSessionReconciliation {
         session_reconciliation:
           reconcile_intended_and_existing_guidebook_sessions(

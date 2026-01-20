@@ -79,6 +79,9 @@ pub fn reconcile_intended_and_existing_guidebook_presenters(
   let mut presenters_to_update = Vec::new();
 
   for intended_presenter in intended_presenters {
+    // find the existing presenter where the name matches and the subtitle
+    // either matches or is supposed to be empty (and is not present in the
+    // existing)
     match existing_presenters.iter().find(|ep| {
       ep.name.as_ref() == intended_presenter.name.as_ref()
         && ((ep.subtitle.as_ref() == intended_presenter.subtitle.as_ref())

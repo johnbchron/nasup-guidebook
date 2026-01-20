@@ -65,12 +65,21 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
   )
 }
 
-#[instrument(skip(config, nasup_session, schedule_tracks))]
+#[derive(Clone, Debug)]
+pub struct WithLinks<T>(pub T, pub Vec<u32>);
+
+#[instrument(skip(
+  config,
+  nasup_session,
+  schedule_tracks,
+  existing_presenters
+))]
 pub fn nasup_session_to_guidebook_session(
   config: &Config,
   nasup_session: NasupSession,
   schedule_tracks: &[GuidebookScheduleTrack],
-) -> miette::Result<GuidebookSession> {
+  existing_presenters: &[GuidebookPresenter],
+) -> miette::Result<WithLinks<GuidebookSession>> {
   let discriminator_stripped_name =
     strip_session_discriminators_from_name(&nasup_session.title);
   let description_html = format!(
@@ -113,6 +122,25 @@ pub fn nasup_session_to_guidebook_session(
     })
     .collect();
 
+  let presenters_to_link_to =
+    nasup_session.approved_presenters.iter().flat_map(|ap| {
+      let intended_presenter =
+        nasup_presenter_to_guidebook_presenter(config, ap.clone()).unwrap();
+      let located_presenter = existing_presenters.iter().find(|ep| {
+        ep.name.as_ref() == intended_presenter.name.as_ref()
+          && ((ep.subtitle.as_ref() == intended_presenter.subtitle.as_ref())
+            || intended_presenter
+              .subtitle
+              .as_ref()
+              .is_some_and(String::is_empty))
+      });
+      let Some(id) = located_presenter.map(|p| p.id.unwrap()) else {
+        warn!(name = ?intended_presenter.name, subtitle = ?intended_presenter.subtitle, "could not find existing presenter to link to for session");
+        return None;
+      };
+      Some(id)
+    }).collect();
+
   let session = GuidebookSession {
     id: None,
     guide_id: config.guide_id as u32,
@@ -139,7 +167,7 @@ pub fn nasup_session_to_guidebook_session(
     "calculated guidebook session from nasup session"
   );
 
-  Ok(session)
+  Ok(WithLinks(session, presenters_to_link_to))
 }
 
 pub fn nasup_sessions_to_guidebook_presenters(
