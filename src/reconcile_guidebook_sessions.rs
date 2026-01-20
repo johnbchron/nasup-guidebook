@@ -26,7 +26,7 @@ impl SessionReconciliation {
       crate::guidebook::upsert_guidebook_entity(
         config,
         session.clone(),
-        "/sessions",
+        "/sessions/",
         crate::guidebook::Modification::Create,
       )
       .await
@@ -45,7 +45,7 @@ impl SessionReconciliation {
       crate::guidebook::upsert_guidebook_entity(
         config,
         session.clone(),
-        "/sessions",
+        "/sessions/",
         crate::guidebook::Modification::Update {
           id: session.id.unwrap(),
         },
