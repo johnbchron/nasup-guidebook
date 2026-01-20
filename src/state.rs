@@ -36,6 +36,7 @@ use crate::{
     StrandsReconciliation,
     reconcile_intended_and_existing_guidebook_schedule_tracks,
   },
+  synchronize_links::synchronize_session_links,
   synth_nasup::{NasupSession, synthesize_parsed_nasup_data},
 };
 
@@ -88,18 +89,20 @@ pub enum MasterState {
   FetchedGuidebookSessionState {
     intended_sessions: Vec<GuidebookSession>,
     existing_sessions: Vec<GuidebookSession>,
-    intended_link_map: HashMap<String, Vec<u32>>,
+    intended_session_import_id_to_presenter_link_map: HashMap<String, Vec<u32>>,
   },
   CalculatedSessionReconciliation {
     session_reconciliation: SessionReconciliation,
+    intended_session_import_id_to_presenter_link_map: HashMap<String, Vec<u32>>,
   },
-  ExecutedSessionReconciliation,
+  ExecutedSessionReconciliation {
+    intended_session_to_presenter_link_map: HashMap<u32, Vec<u32>>,
+  },
+  SynchronizedLinks,
 }
 
 impl MasterState {
-  pub fn completed(&self) -> bool {
-    matches!(self, Self::ExecutedSessionReconciliation)
-  }
+  pub fn completed(&self) -> bool { matches!(self, Self::SynchronizedLinks) }
 
   pub async fn step(self, config: &Config) -> miette::Result<Self> {
     let old_state_step = self.kind();
@@ -300,14 +303,15 @@ impl MasterState {
           intended_sessions,
           existing_sessions: fetch_all_guidebook_entities(config, "/sessions")
             .await?,
-          intended_link_map: import_id_to_links_map,
+          intended_session_import_id_to_presenter_link_map:
+            import_id_to_links_map,
         }
       }
 
       MasterState::FetchedGuidebookSessionState {
         intended_sessions,
         existing_sessions,
-        intended_link_map,
+        intended_session_import_id_to_presenter_link_map,
       } => MasterState::CalculatedSessionReconciliation {
         session_reconciliation:
           reconcile_intended_and_existing_guidebook_sessions(
@@ -317,10 +321,12 @@ impl MasterState {
           .context(
             "failed to reconcile intended and existing guidebook sessions",
           )?,
+        intended_session_import_id_to_presenter_link_map,
       },
 
       MasterState::CalculatedSessionReconciliation {
         session_reconciliation,
+        intended_session_import_id_to_presenter_link_map,
       } => {
         session_reconciliation
           .execute_reconciliation(config)
@@ -328,10 +334,38 @@ impl MasterState {
           .context(
             "failed to reconcile intended and existing guidebook sessions",
           )?;
-        MasterState::ExecutedSessionReconciliation
+
+        let new_session_state =
+          fetch_all_guidebook_entities::<GuidebookSession>(config, "/sessions")
+            .await?;
+        let intended_session_to_presenter_link_map =
+          intended_session_import_id_to_presenter_link_map
+            .into_iter()
+            .filter_map(|(iid, links)| {
+              new_session_state
+                .iter()
+                .find(|s| s.import_id.as_ref().unwrap() == &iid)
+                .map(|s| (s.id.unwrap(), links))
+            })
+            .collect::<HashMap<_, _>>();
+        MasterState::ExecutedSessionReconciliation {
+          intended_session_to_presenter_link_map,
+        }
       }
 
-      MasterState::ExecutedSessionReconciliation => unreachable!(),
+      MasterState::ExecutedSessionReconciliation {
+        intended_session_to_presenter_link_map,
+      } => {
+        synchronize_session_links(
+          config,
+          intended_session_to_presenter_link_map,
+        )
+        .await
+        .context("failed to synchronize links")?;
+        MasterState::SynchronizedLinks
+      }
+
+      MasterState::SynchronizedLinks => unreachable!(),
     };
 
     info!(

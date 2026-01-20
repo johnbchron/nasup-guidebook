@@ -10,6 +10,41 @@ use crate::{HTTP_CLIENT, config::Config};
 const GUIDEBOOK_BASE_URL: &str = "https://builder.guidebook.com/open-api/v1.1";
 
 #[instrument(skip(config))]
+pub async fn delete_guidebook_entity(
+  config: &Config,
+  url: &str,
+  id: u32,
+) -> miette::Result<()> {
+  let url =
+    format!("{GUIDEBOOK_BASE_URL}{url}/{id}", url = url.trim_suffix("/"));
+  let req = HTTP_CLIENT
+    .delete(url)
+    .header(
+      "Authorization",
+      format!("JWT {api_key}", api_key = config.api_key),
+    )
+    .query(&[("guide", &config.guide_id.to_string())]);
+
+  trace!("sending guidebook request to delete entity");
+  let resp = req
+    .send()
+    .await
+    .into_diagnostic()
+    .context("failed to send request to delete guidebook entity")?
+    .error_for_status()
+    .into_diagnostic()
+    .context(
+      "got server error response from response to delete guidebook entity",
+    )?;
+  trace!(
+    content_length = resp.content_length(),
+    "got successful response from entity deletion request"
+  );
+
+  Ok(())
+}
+
+#[instrument(skip(config))]
 async fn fetch_page_of_guidebook_entities<T: for<'a> Deserialize<'a>>(
   config: &Config,
   url: &str,

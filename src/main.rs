@@ -13,6 +13,7 @@ mod reconcile_guidebook_presenters;
 mod reconcile_guidebook_sessions;
 mod reconcile_guidebook_strands;
 mod state;
+mod synchronize_links;
 mod synth_nasup;
 
 use std::sync::LazyLock;
