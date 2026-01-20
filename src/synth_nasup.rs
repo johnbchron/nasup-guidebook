@@ -2,6 +2,7 @@ use std::str::pattern::Pattern;
 
 use chrono::{Datelike, TimeZone, Timelike, Utc};
 use chrono_tz::US::Eastern;
+use miette::{Context, IntoDiagnostic};
 use serde::Serialize;
 use tracing::{debug, warn};
 
@@ -22,6 +23,21 @@ pub struct NasupSession {
   pub approved_presenters: Vec<NasupPresenter>,
   pub strands:             Vec<String>,
   pub intended_audience:   Vec<String>,
+}
+
+impl NasupSession {
+  pub fn primary_key(&self) -> String {
+    let session_primary_key = serde_json::json!({
+      "type": self.session_type,
+      "start": self.start_datetime,
+      "end": self.end_datetime,
+    });
+
+    serde_json::to_string(&session_primary_key)
+      .into_diagnostic()
+      .context("failed to serialize session primary key into JSON")
+      .unwrap()
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Hash, PartialEq, Eq)]

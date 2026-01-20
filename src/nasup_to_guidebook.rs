@@ -3,7 +3,6 @@ use std::{
   hash::{DefaultHasher, Hash, Hasher},
 };
 
-use miette::{Context, IntoDiagnostic};
 use tracing::{debug, instrument, warn};
 
 use crate::{
@@ -89,15 +88,7 @@ pub fn nasup_session_to_guidebook_session(
     description_text = html_escape::encode_text(&nasup_session.description),
   );
 
-  let session_primary_key = serde_json::json!({
-    "type": nasup_session.session_type,
-    "start": nasup_session.start_datetime,
-    "end": nasup_session.end_datetime,
-  });
-
-  let session_primary_key_json = serde_json::to_string(&session_primary_key)
-    .into_diagnostic()
-    .context("failed to serialize session primary key into JSON")?;
+  let session_primary_key = nasup_session.primary_key();
 
   let schedule_tracks_to_find = nasup_session
     .strands
@@ -151,7 +142,7 @@ pub fn nasup_session_to_guidebook_session(
     all_day: Some(false),
     allow_rating: Some(false),
     add_to_schedule: Some(true),
-    import_id: Some(session_primary_key_json.clone()),
+    import_id: Some(session_primary_key.clone()),
     locations: None,
     schedule_tracks: Some(schedule_track_ids),
     rank: Some(1.0),
@@ -163,7 +154,7 @@ pub fn nasup_session_to_guidebook_session(
   };
 
   debug!(
-    primary_key = session_primary_key_json,
+    primary_key = session_primary_key,
     "calculated guidebook session from nasup session"
   );
 
