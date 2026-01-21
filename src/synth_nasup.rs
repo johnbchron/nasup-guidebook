@@ -8,7 +8,7 @@ use tracing::{debug, warn};
 
 use crate::parse_nasup::parse_model::{
   ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
-  ParsedNasupSessionType, ParsedNasupStrandsAndIntendedAudience,
+  ParsedNasupSessionType, ParsedNasupStrandAndIntendedAudience,
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -21,8 +21,8 @@ pub struct NasupSession {
   pub description:         String,
   /// Only presenters that have paid are included here.
   pub approved_presenters: Vec<NasupPresenter>,
-  pub strands:             Vec<String>,
-  pub intended_audience:   Vec<String>,
+  pub strand:              Option<String>,
+  pub intended_audience:   Option<String>,
 }
 
 impl NasupSession {
@@ -53,7 +53,7 @@ pub fn synthesize_parsed_nasup_data(
   parsed_presenter_institutions: Vec<
     ParsedNasupPresenterWithInstitutionBySession,
   >,
-  parsed_strands: Vec<ParsedNasupStrandsAndIntendedAudience>,
+  parsed_strands: Vec<ParsedNasupStrandAndIntendedAudience>,
 ) -> miette::Result<Vec<NasupSession>> {
   let mut synthesized_sessions = Vec::new();
 
@@ -141,29 +141,22 @@ pub fn synthesize_parsed_nasup_data(
     if relevant_strands_records.is_empty() {
       warn!(
         session = session_name_search_query,
-        "found no strands records with given session title"
+        "found no strands records with given session title",
       );
     }
     if relevant_strands_records.len() > 1 {
       warn!(
         session = session_name_search_query,
-        "found more than one strands record with given session title"
+        "found more than one strands record with given session title",
       );
     }
 
-    let strands = relevant_strands_records
-      .iter()
-      .flat_map(|r| r.strands.iter())
-      .cloned()
-      .collect();
-    let intended_audience = relevant_strands_records
-      .iter()
-      .flat_map(|r| r.intended_audience.iter())
-      .cloned()
-      .collect();
+    let record = relevant_strands_records.first();
+    let strand = record.map(|r| r.strand.clone());
+    let intended_audience = record.map(|r| r.intended_audience.clone());
 
     debug!(
-      ?strands,
+      ?strand,
       ?intended_audience,
       session = session_name_search_query,
       "found strands for session"
@@ -177,7 +170,7 @@ pub fn synthesize_parsed_nasup_data(
       title: parsed_session.title,
       description: parsed_session.description,
       approved_presenters,
-      strands,
+      strand,
       intended_audience,
     };
 

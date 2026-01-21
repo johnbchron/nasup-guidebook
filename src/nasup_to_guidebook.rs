@@ -21,46 +21,46 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
 ) -> miette::Result<Vec<GuidebookScheduleTrack>> {
   let strands = nasup_sessions
     .iter()
-    .flat_map(|s| s.strands.clone().into_iter())
+    .filter_map(|s| s.strand.clone())
     .collect::<HashSet<_>>();
-  let intended_audiences = nasup_sessions
+  let types = nasup_sessions
     .iter()
-    .flat_map(|s| s.intended_audience.clone().into_iter())
+    .map(|s| s.session_type.to_string())
     .collect::<HashSet<_>>();
 
   Ok(
     strands
       .into_iter()
       .map(|n| (true, n))
-      .chain(intended_audiences.into_iter().map(|n| (false, n)))
-      .map(|(s, n)| {
-        let mut hasher = DefaultHasher::new();
-        n.hash(&mut hasher);
-        let name_hash = hasher.finish();
-        let hue = name_hash as f64 / (u64::MAX as f64 / 360.0);
-        let color = colorutils_rs::Oklch {
-          l: 0.7,
-          c: if s { 0.16 } else { 0.05 },
-          h: hue as f32,
-        }
-        .to_rgb(colorutils_rs::TransferFunction::Srgb);
-        let color = format!(
-          "#{r:02X}{g:02X}{b:02X}",
-          r = color.r,
-          g = color.g,
-          b = color.b
-        );
-
-        GuidebookScheduleTrack {
-          id:               None,
-          guide_id:         config.guide_id as u32,
-          name:             Some(n.clone()),
-          description_html: None,
-          color:            Some(color),
-          import_id:        None,
-        }
+      .chain(types.into_iter().map(|n| (false, n)))
+      .map(|(s, n)| GuidebookScheduleTrack {
+        id:               None,
+        guide_id:         config.guide_id as u32,
+        name:             Some(n.clone()),
+        description_html: None,
+        color:            Some(hex_color_from_name(&n, s)),
+        import_id:        None,
       })
       .collect(),
+  )
+}
+
+fn hex_color_from_name(name: &str, dark: bool) -> String {
+  let mut hasher = DefaultHasher::new();
+  name.hash(&mut hasher);
+  let name_hash = hasher.finish();
+  let hue = name_hash as f64 / (u64::MAX as f64 / 360.0);
+  let color = colorutils_rs::Oklch {
+    l: 0.7,
+    c: if dark { 0.16 } else { 0.05 },
+    h: hue as f32,
+  }
+  .to_rgb(colorutils_rs::TransferFunction::Srgb);
+  format!(
+    "#{r:02X}{g:02X}{b:02X}",
+    r = color.r,
+    g = color.g,
+    b = color.b
   )
 }
 
@@ -81,8 +81,15 @@ pub fn nasup_session_to_guidebook_session(
 ) -> miette::Result<WithLinks<GuidebookSession>> {
   let discriminator_stripped_name =
     strip_session_discriminators_from_name(&nasup_session.title);
+  let intended_audience_line = nasup_session
+    .intended_audience
+    .clone()
+    .map(|ia| format!("<br><p><b>Intended for</b>: {ia}</p>"))
+    .unwrap_or_default();
+
   let description_html = format!(
-    "<h1>{discriminator_stripped_and_escaped_name}</h1>{description_text}",
+    "<h1>{discriminator_stripped_and_escaped_name}</h1><p>{description_text}</\
+     p>{intended_audience_line}",
     discriminator_stripped_and_escaped_name =
       html_escape::encode_text(&discriminator_stripped_name),
     description_text = html_escape::encode_text(&nasup_session.description),
@@ -91,9 +98,9 @@ pub fn nasup_session_to_guidebook_session(
   let session_primary_key = nasup_session.primary_key();
 
   let schedule_tracks_to_find = nasup_session
-    .strands
+    .strand
     .into_iter()
-    .chain(nasup_session.intended_audience.into_iter());
+    .chain(Some(nasup_session.session_type.to_string()));
   let schedule_track_ids = schedule_tracks_to_find
     .filter_map(|stn| {
       match schedule_tracks

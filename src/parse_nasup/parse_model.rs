@@ -1,3 +1,5 @@
+use std::fmt;
+
 use miette::bail;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +27,36 @@ pub enum ParsedNasupSessionType {
   RoundTable(u8),
   // #[serde(rename = "Symposium")]
   Symposium,
+}
+
+impl fmt::Display for ParsedNasupSessionType {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      ParsedNasupSessionType::CollaborativeConversations => {
+        f.write_str("Collaborative Conversations")
+      }
+      ParsedNasupSessionType::ExtendedPractionerWorkshop => {
+        f.write_str("Extended Practitioner Workshop")
+      }
+      ParsedNasupSessionType::General => f.write_str("General"),
+      ParsedNasupSessionType::Leadership => f.write_str("Leadership"),
+      ParsedNasupSessionType::PairedConcurrent(_) => {
+        f.write_str("Paired Concurrent")
+      }
+      ParsedNasupSessionType::PartnershipFocusedWorkshop => {
+        f.write_str("Partnership-Focused Workshop")
+      }
+      ParsedNasupSessionType::PractitionerFocusedWorkshop => {
+        f.write_str("Practitioner-Focused Workshop")
+      }
+      ParsedNasupSessionType::PreConference => f.write_str("Pre-Conference"),
+      ParsedNasupSessionType::PreServiceTeacherEvent => {
+        f.write_str("Preservice Teacher Event")
+      }
+      ParsedNasupSessionType::RoundTable(_) => f.write_str("Round Tables"),
+      ParsedNasupSessionType::Symposium => f.write_str("Symposium"),
+    }
+  }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -114,9 +146,9 @@ pub struct ParsedNasupSession {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ParsedNasupStrandsAndIntendedAudience {
+pub struct ParsedNasupStrandAndIntendedAudience {
   pub title:             String,
   pub presenters:        Vec<String>,
-  pub strands:           Vec<String>,
-  pub intended_audience: Vec<String>,
+  pub strand:            String,
+  pub intended_audience: String,
 }

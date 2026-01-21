@@ -19,7 +19,7 @@ use crate::{
   parse_nasup::{
     parse_model::{
       ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
-      ParsedNasupStrandsAndIntendedAudience,
+      ParsedNasupStrandAndIntendedAudience,
     },
     parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet,
     parse_sessions::parse_nasup_sessions_from_worksheet,
@@ -52,7 +52,7 @@ pub enum MasterState {
   ParsedInputs {
     sessions:   Vec<ParsedNasupSession>,
     presenters: Vec<ParsedNasupPresenterWithInstitutionBySession>,
-    strands:    Vec<ParsedNasupStrandsAndIntendedAudience>,
+    strands:    Vec<ParsedNasupStrandAndIntendedAudience>,
   },
   SynthesizedInputs {
     sessions: Vec<NasupSession>,

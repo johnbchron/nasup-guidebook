@@ -4,7 +4,7 @@ use calamine::Data;
 use miette::bail;
 use tracing::{debug, trace, warn};
 
-use super::parse_model::ParsedNasupStrandsAndIntendedAudience;
+use super::parse_model::ParsedNasupStrandAndIntendedAudience;
 use crate::{
   fetch_sheet::DecodedWorksheet,
   parse_nasup::find_commas_without_following_whitespace,
@@ -12,7 +12,7 @@ use crate::{
 
 pub fn parse_nasup_strands_from_worksheet(
   worksheet: DecodedWorksheet,
-) -> miette::Result<Vec<ParsedNasupStrandsAndIntendedAudience>> {
+) -> miette::Result<Vec<ParsedNasupStrandAndIntendedAudience>> {
   let mut strands_and_intended_audience = Vec::new();
 
   // skip the header
@@ -27,7 +27,7 @@ pub fn parse_nasup_strands_from_worksheet(
 
 fn parse_nasup_strands_from_row(
   row: &[Data],
-) -> miette::Result<ParsedNasupStrandsAndIntendedAudience> {
+) -> miette::Result<ParsedNasupStrandAndIntendedAudience> {
   miette::ensure!(
     !row.is_empty(),
     "failed to parse XLSX row as NASUP presenter-institutions: row is empty"
@@ -68,30 +68,18 @@ fn parse_nasup_strands_from_row(
   trace!(?split_author_names, "found and split author names");
 
   // strands
-  let strands = match row.index(2) {
+  let strand = match row.index(2) {
     Data::String(an) => an.trim().to_owned(),
     d => bail!("strands column is not a string, got {d:?}"),
   };
-  let commas_without_following_whitespace =
-    find_commas_without_following_whitespace(&strands);
-  if !commas_without_following_whitespace.is_empty() {
-    warn!(
-      strands,
-      "found commas that may be missing a space in strands column"
-    );
-  }
-  let split_strands = strands
-    .split(", ")
-    // get rid of ", and FOO"
-    .map(|s| s.trim_prefix("and ").to_owned())
-    .collect::<Vec<_>>();
-  trace!(?split_strands, "found and split strands");
+  trace!(strand, "parsed strand column");
 
   // intended_audience
   let intended_audience = match row.index(3) {
     Data::String(an) => an.trim().to_owned(),
     d => bail!("intended_audience column is not a string, got {d:?}"),
   };
+  trace!(strand, "parsed intended_audience column");
   let commas_without_following_whitespace =
     find_commas_without_following_whitespace(&intended_audience);
   if !commas_without_following_whitespace.is_empty() {
@@ -109,11 +97,11 @@ fn parse_nasup_strands_from_row(
     "found and split intended_audience"
   );
 
-  let strands_and_intended_audience = ParsedNasupStrandsAndIntendedAudience {
-    title:             session_name,
-    presenters:        split_author_names,
-    strands:           split_strands,
-    intended_audience: split_intended_audience,
+  let strands_and_intended_audience = ParsedNasupStrandAndIntendedAudience {
+    title: session_name,
+    presenters: split_author_names,
+    strand,
+    intended_audience,
   };
 
   debug!(
