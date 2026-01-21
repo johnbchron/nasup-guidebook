@@ -148,7 +148,7 @@ pub fn nasup_session_to_guidebook_session(
     rank: Some(1.0),
     registration_start_date: None,
     registration_end_date: None,
-    require_login: Some(true),
+    require_login: Some(false),
     waitlist: Some(false),
     max_capacity: None,
   };
