@@ -28,7 +28,8 @@ pub struct NasupSession {
 impl NasupSession {
   pub fn primary_key(&self) -> String {
     let session_primary_key = serde_json::json!({
-      "type": self.session_type,
+      "name": self.title.get(0..30).unwrap_or(&self.title),
+      "room": self.room,
       "start": self.start_datetime,
       "end": self.end_datetime,
     });

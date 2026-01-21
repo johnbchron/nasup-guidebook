@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use miette::Context;
-use tracing::{debug, instrument, warn};
+use tracing::{debug, error, instrument, warn};
 
 use crate::{config::Config, guidebook::model::GuidebookSession};
 
@@ -66,6 +66,42 @@ pub fn reconcile_intended_and_existing_guidebook_sessions(
   intended_sessions: &[GuidebookSession],
   existing_sessions: &[GuidebookSession],
 ) -> miette::Result<SessionReconciliation> {
+  let mut import_id_collision_map: HashMap<String, Vec<GuidebookSession>> =
+    HashMap::new();
+  for intended_session in intended_sessions {
+    let import_id = intended_session.import_id.clone().unwrap();
+    import_id_collision_map
+      .entry(import_id)
+      .or_default()
+      .push(intended_session.clone());
+  }
+  let mut bail_because_of_collision = false;
+  for (import_id, sessions) in import_id_collision_map {
+    if sessions.len() > 1 {
+      bail_because_of_collision = true;
+      error!(
+        import_id,
+        ?sessions,
+        "found import ID collision in intended sessions"
+      );
+    }
+  }
+  if bail_because_of_collision {
+    miette::bail!("found import ID collisions in intended sessions");
+  }
+  // let unique_import_ids = intended_sessions
+  //   .iter()
+  //   .map(|is| is.import_id.clone().unwrap())
+  //   .collect::<HashSet<_>>();
+  // if unique_import_ids.len() < intended_sessions.len() {
+  //   miette::bail!(
+  //     "import IDs collided, expected {} IDs, found {} IDs",
+  //     intended_sessions.len(),
+  //     unique_import_ids.len()
+  //   );
+  // }
+  // todo!();
+
   // build hashmap of existing sessions by import_id
   // warn if no import_id
   let mut existing_sessions_by_import_id = HashMap::new();
