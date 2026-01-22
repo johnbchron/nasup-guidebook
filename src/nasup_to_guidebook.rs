@@ -11,9 +11,7 @@ use crate::{
     GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession,
   },
   parse_nasup::parse_model::ParsedNasupSessionType,
-  synth_nasup::{
-    NasupPresenter, NasupSession, strip_session_discriminators_from_name,
-  },
+  synth_nasup::{NasupPresenter, NasupSession},
 };
 
 pub fn nasup_sessions_to_guidebook_schedule_tracks(
@@ -82,8 +80,6 @@ pub fn nasup_session_to_guidebook_session(
   schedule_tracks: &[GuidebookScheduleTrack],
   existing_presenters: &[GuidebookPresenter],
 ) -> miette::Result<WithLinks<GuidebookSession>> {
-  let discriminator_stripped_name =
-    strip_session_discriminators_from_name(&nasup_session.title);
   let intended_audience_line = nasup_session
     .intended_audience
     .clone()
@@ -91,10 +87,7 @@ pub fn nasup_session_to_guidebook_session(
     .unwrap_or_default();
 
   let description_html = format!(
-    "<h1>{discriminator_stripped_and_escaped_name}</h1><p>{description_text}</\
-     p>{intended_audience_line}",
-    discriminator_stripped_and_escaped_name =
-      html_escape::encode_text(&discriminator_stripped_name),
+    "<p>{description_text}</p>{intended_audience_line}",
     description_text = html_escape::encode_text(&nasup_session.description),
   );
 
