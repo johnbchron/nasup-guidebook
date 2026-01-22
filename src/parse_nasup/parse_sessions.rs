@@ -170,6 +170,7 @@ pub fn parse_nasup_session_from_row(
   }
 
   let session = ParsedNasupSession {
+    row_index,
     date,
     start_time,
     end_time,

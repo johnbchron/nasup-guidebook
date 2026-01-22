@@ -10,6 +10,7 @@ use crate::{
   guidebook::model::{
     GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession,
   },
+  parse_nasup::parse_model::ParsedNasupSessionType,
   synth_nasup::{
     NasupPresenter, NasupSession, strip_session_discriminators_from_name,
   },
@@ -25,7 +26,9 @@ pub fn nasup_sessions_to_guidebook_schedule_tracks(
     .collect::<HashSet<_>>();
   let types = nasup_sessions
     .iter()
-    .map(|s| s.session_type.to_string())
+    .map(|s| s.session_type.clone())
+    .filter(ParsedNasupSessionType::included)
+    .map(|t| t.to_string())
     .collect::<HashSet<_>>();
 
   Ok(
@@ -97,10 +100,11 @@ pub fn nasup_session_to_guidebook_session(
 
   let session_primary_key = nasup_session.primary_key();
 
-  let schedule_tracks_to_find = nasup_session
-    .strand
-    .into_iter()
-    .chain(Some(nasup_session.session_type.to_string()));
+  let schedule_tracks_to_find = nasup_session.strand.into_iter().chain(
+    Some(nasup_session.session_type)
+      .filter(ParsedNasupSessionType::included)
+      .map(|t| t.to_string()),
+  );
   let schedule_track_ids = schedule_tracks_to_find
     .filter_map(|stn| {
       match schedule_tracks
@@ -142,7 +146,7 @@ pub fn nasup_session_to_guidebook_session(
   let session = GuidebookSession {
     id: None,
     guide_id: config.guide_id as u32,
-    name: Some(discriminator_stripped_name),
+    name: Some(nasup_session.title.clone()),
     description_html: Some(description_html),
     start_time: nasup_session.start_datetime,
     end_time: Some(nasup_session.end_datetime),
@@ -152,7 +156,7 @@ pub fn nasup_session_to_guidebook_session(
     import_id: Some(session_primary_key.clone()),
     locations: None,
     schedule_tracks: Some(schedule_track_ids),
-    rank: Some(1.0),
+    rank: Some(nasup_session.rank),
     registration_start_date: None,
     registration_end_date: None,
     require_login: Some(false),

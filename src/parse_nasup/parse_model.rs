@@ -3,7 +3,7 @@ use std::fmt;
 use miette::bail;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum ParsedNasupSessionType {
   // #[serde(rename = "Collaborative Conversations")]
   CollaborativeConversations,
@@ -59,13 +59,21 @@ impl fmt::Display for ParsedNasupSessionType {
   }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub enum PairedConcurrentDiscriminant {
   A,
   B,
 }
 
 impl ParsedNasupSessionType {
+  pub fn included(&self) -> bool {
+    !matches!(
+      self,
+      ParsedNasupSessionType::PreConference
+        | ParsedNasupSessionType::Leadership
+    )
+  }
+
   pub fn from_type_and_title(
     session_type: &str,
     session_title: &str,
@@ -135,6 +143,7 @@ pub struct ParsedNasupPresenterWithInstitutionBySession {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ParsedNasupSession {
+  pub row_index:    usize,
   pub date:         chrono::NaiveDate,
   pub start_time:   chrono::NaiveTime,
   pub end_time:     chrono::NaiveTime,

@@ -23,6 +23,7 @@ pub struct NasupSession {
   pub approved_presenters: Vec<NasupPresenter>,
   pub strand:              Option<String>,
   pub intended_audience:   Option<String>,
+  pub rank:                f32,
 }
 
 impl NasupSession {
@@ -172,6 +173,7 @@ pub fn synthesize_parsed_nasup_data(
       approved_presenters,
       strand,
       intended_audience,
+      rank: parsed_session.row_index as f32,
     };
 
     debug!("synthesized full session record: {synthesized_session:#?}");
