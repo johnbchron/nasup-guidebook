@@ -7,15 +7,16 @@ use serde::Serialize;
 use tracing::{debug, warn};
 
 use crate::parse_nasup::parse_model::{
-  ParsedNasupPresenterWithInstitutionBySession, ParsedNasupSession,
-  ParsedNasupSessionType, ParsedNasupStrandAndIntendedAudience,
+  ParsedNasupLocation, ParsedNasupPresenterWithInstitutionBySession,
+  ParsedNasupSession, ParsedNasupSessionType,
+  ParsedNasupStrandAndIntendedAudience,
 };
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NasupSession {
   pub start_datetime:      chrono::DateTime<Utc>,
   pub end_datetime:        chrono::DateTime<Utc>,
-  pub room:                String,
+  pub room:                ParsedNasupLocation,
   pub session_type:        ParsedNasupSessionType,
   pub title:               String,
   pub description:         String,
@@ -30,7 +31,7 @@ impl NasupSession {
   pub fn primary_key(&self) -> String {
     let session_primary_key = serde_json::json!({
       "name": self.title.get(0..30).unwrap_or(&self.title),
-      "room": self.room,
+      "room": self.room.name,
       "start": self.start_datetime,
       "end": self.end_datetime,
     });

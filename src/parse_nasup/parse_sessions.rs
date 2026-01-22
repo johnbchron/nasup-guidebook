@@ -8,7 +8,8 @@ use super::parse_model::ParsedNasupSession;
 use crate::{
   fetch_sheet::DecodedWorksheet,
   parse_nasup::parse_model::{
-    ParsedNasupPresenterWithPaymentStatus, ParsedNasupSessionType,
+    ParsedNasupLocation, ParsedNasupPresenterWithPaymentStatus,
+    ParsedNasupSessionType,
   },
 };
 
@@ -174,7 +175,7 @@ pub fn parse_nasup_session_from_row(
     date,
     start_time,
     end_time,
-    room,
+    room: ParsedNasupLocation::from_string(&room),
     session_type,
     title,
     description,

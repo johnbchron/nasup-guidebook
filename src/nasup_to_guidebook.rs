@@ -8,7 +8,8 @@ use tracing::{debug, instrument, warn};
 use crate::{
   config::Config,
   guidebook::model::{
-    GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession,
+    GuidebookLocation, GuidebookPresenter, GuidebookScheduleTrack,
+    GuidebookSession,
   },
   parse_nasup::parse_model::ParsedNasupSessionType,
   synth_nasup::{NasupPresenter, NasupSession},
@@ -62,6 +63,27 @@ fn hex_color_from_name(name: &str, dark: bool) -> String {
     r = color.r,
     g = color.g,
     b = color.b
+  )
+}
+
+pub fn nasup_sessions_to_guidebook_locations(
+  config: &Config,
+  nasup_sessions: &[NasupSession],
+) -> miette::Result<Vec<GuidebookLocation>> {
+  Ok(
+    nasup_sessions
+      .iter()
+      .map(|s| s.room.clone())
+      .collect::<HashSet<_>>()
+      .into_iter()
+      .map(|l| GuidebookLocation {
+        id:            None,
+        guide_id:      config.guide_id as u32,
+        name:          Some(l.name),
+        import_id:     None,
+        location_type: Some(2),
+      })
+      .collect(),
   )
 }
 

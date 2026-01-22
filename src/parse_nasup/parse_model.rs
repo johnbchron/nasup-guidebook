@@ -147,7 +147,7 @@ pub struct ParsedNasupSession {
   pub date:         chrono::NaiveDate,
   pub start_time:   chrono::NaiveTime,
   pub end_time:     chrono::NaiveTime,
-  pub room:         String,
+  pub room:         ParsedNasupLocation,
   pub session_type: ParsedNasupSessionType,
   pub title:        String,
   pub description:  String,
@@ -160,4 +160,21 @@ pub struct ParsedNasupStrandAndIntendedAudience {
   pub presenters:        Vec<String>,
   pub strand:            String,
   pub intended_audience: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct ParsedNasupLocation {
+  pub name: String,
+}
+
+impl ParsedNasupLocation {
+  pub fn from_string(input: &str) -> Self {
+    ParsedNasupLocation {
+      name: input
+        .lines()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" "),
+    }
+  }
 }

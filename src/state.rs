@@ -9,10 +9,14 @@ use crate::{
   fetch_sheet::{DecodedWorksheet, fetch_xlsx_from_google_sheets},
   guidebook::{
     fetch_all_guidebook_entities,
-    model::{GuidebookPresenter, GuidebookScheduleTrack, GuidebookSession},
+    model::{
+      GuidebookLocation, GuidebookPresenter, GuidebookScheduleTrack,
+      GuidebookSession,
+    },
   },
   nasup_to_guidebook::{
     WithLinks, nasup_session_to_guidebook_session,
+    nasup_sessions_to_guidebook_locations,
     nasup_sessions_to_guidebook_presenters,
     nasup_sessions_to_guidebook_schedule_tracks,
   },
@@ -24,6 +28,10 @@ use crate::{
     parse_presenter_institutions::parse_nasup_presenter_institutions_from_worksheet,
     parse_sessions::parse_nasup_sessions_from_worksheet,
     parse_strands::parse_nasup_strands_from_worksheet,
+  },
+  reconcile_guidebook_locations::{
+    LocationsReconciliation,
+    reconcile_intended_and_existing_guidebook_locations,
   },
   reconcile_guidebook_presenters::{
     PresenterReconciliation,
@@ -69,6 +77,22 @@ pub enum MasterState {
   ExecutedStrandsReconciliation {
     sessions:         Vec<NasupSession>,
     existing_strands: Vec<GuidebookScheduleTrack>,
+  },
+  FetchedLocationState {
+    sessions:           Vec<NasupSession>,
+    existing_strands:   Vec<GuidebookScheduleTrack>,
+    intended_locations: Vec<GuidebookLocation>,
+    existing_locations: Vec<GuidebookLocation>,
+  },
+  CalculatedLocationReconciliation {
+    sessions:                 Vec<NasupSession>,
+    existing_strands:         Vec<GuidebookScheduleTrack>,
+    locations_reconciliation: LocationsReconciliation,
+  },
+  ExecutedLocationReconciliation {
+    sessions:           Vec<NasupSession>,
+    existing_strands:   Vec<GuidebookScheduleTrack>,
+    existing_locations: Vec<GuidebookLocation>,
   },
   FetchedGuidebookPresenterState {
     sessions:            Vec<NasupSession>,
@@ -213,6 +237,64 @@ impl MasterState {
       MasterState::ExecutedStrandsReconciliation {
         sessions,
         existing_strands,
+      } => MasterState::FetchedLocationState {
+        sessions: sessions.clone(),
+        existing_strands,
+        intended_locations: nasup_sessions_to_guidebook_locations(
+          config,
+          sessions.as_slice(),
+        )?,
+        existing_locations: fetch_all_guidebook_entities(config, "/locations")
+          .await?,
+      },
+
+      MasterState::FetchedLocationState {
+        sessions,
+        existing_strands,
+        intended_locations,
+        existing_locations,
+      } => MasterState::CalculatedLocationReconciliation {
+        sessions,
+        existing_strands,
+        locations_reconciliation:
+          reconcile_intended_and_existing_guidebook_locations(
+            &intended_locations,
+            &existing_locations,
+          )
+          .context(
+            "failed to reconcile intended and existing guidebook session \
+             tracks",
+          )?,
+      },
+
+      MasterState::CalculatedLocationReconciliation {
+        sessions,
+        existing_strands,
+        locations_reconciliation,
+      } => {
+        locations_reconciliation
+          .execute_reconciliation(config)
+          .await
+          .context(
+            "failed to reconcile intended and existing guidebook session \
+             tracks",
+          )?;
+
+        MasterState::ExecutedLocationReconciliation {
+          sessions,
+          existing_strands,
+          existing_locations: fetch_all_guidebook_entities(
+            config,
+            "/schedule-tracks",
+          )
+          .await?,
+        }
+      }
+
+      MasterState::ExecutedLocationReconciliation {
+        sessions,
+        existing_strands,
+        existing_locations,
       } => MasterState::FetchedGuidebookPresenterState {
         sessions: sessions.clone(),
         existing_strands,

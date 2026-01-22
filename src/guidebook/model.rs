@@ -261,3 +261,30 @@ pub struct GuidebookScheduleTrack {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub import_id:        Option<String>,
 }
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GuidebookLocation {
+  /// The ID of the `Location`
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub id:            Option<u32>,
+  /// The specific `Guide` your `Location` belongs to.
+  #[serde(rename = "guide")]
+  pub guide_id:      u32,
+  /// The name of your `Location`.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub name:          Option<String>,
+  /// A string field you can use to input your own identifier. This is for
+  /// when you have your own IDs for `Location`s in your data store.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub import_id:     Option<String>,
+  /// Either 1, 2 or 3. 1 is the special Main Venue location. 2 is a
+  /// Placeholder location. 3 is a “Google Maps Location”
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub location_type: Option<u32>,
+  // /// Latitude of this Location - only required if this Location is of type
+  // /// (“Google Maps Location”).
+  // pub latitude:      Option<f32>,
+  // /// Longitude of this Location - only required if this Location is of type
+  // /// (“Google Maps Location”).
+  // pub longitude:     Option<f32>,
+}
