@@ -94,12 +94,14 @@ pub struct WithLinks<T>(pub T, pub Vec<u32>);
   config,
   nasup_session,
   schedule_tracks,
+  locations,
   existing_presenters
 ))]
 pub fn nasup_session_to_guidebook_session(
   config: &Config,
   nasup_session: NasupSession,
   schedule_tracks: &[GuidebookScheduleTrack],
+  locations: &[GuidebookLocation],
   existing_presenters: &[GuidebookPresenter],
 ) -> miette::Result<WithLinks<GuidebookSession>> {
   let intended_audience_line = nasup_session
@@ -133,11 +135,21 @@ pub fn nasup_session_to_guidebook_session(
         }
       }
     })
-    .map(|st| {
-      st.id
-        .expect("expected schedule track to have its name field")
-    })
+    .map(|st| st.id.expect("expected schedule track to have its id field"))
     .collect();
+  let location_to_find = nasup_session.room.name.clone();
+  let locations = match locations
+    .iter()
+    .find(|l| l.name.as_ref().unwrap() == &location_to_find)
+  {
+    Some(l) => Some(l.id.expect("expected location to have its id field")),
+    None => {
+      warn!(name = location_to_find, "failed to find location with name");
+      None
+    }
+  }
+  .into_iter()
+  .collect::<HashSet<_>>();
 
   let presenters_to_link_to =
     nasup_session.approved_presenters.iter().flat_map(|ap| {
@@ -169,7 +181,7 @@ pub fn nasup_session_to_guidebook_session(
     allow_rating: Some(false),
     add_to_schedule: Some(true),
     import_id: Some(session_primary_key.clone()),
-    locations: None,
+    locations: Some(locations),
     schedule_tracks: Some(schedule_track_ids),
     rank: Some(nasup_session.rank),
     registration_start_date: None,

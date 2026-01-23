@@ -97,17 +97,20 @@ pub enum MasterState {
   FetchedGuidebookPresenterState {
     sessions:            Vec<NasupSession>,
     existing_strands:    Vec<GuidebookScheduleTrack>,
+    existing_locations:  Vec<GuidebookLocation>,
     intended_presenters: Vec<GuidebookPresenter>,
     existing_presenters: Vec<GuidebookPresenter>,
   },
   CalculatedPresenterReconciliation {
     sessions:                 Vec<NasupSession>,
     existing_strands:         Vec<GuidebookScheduleTrack>,
+    existing_locations:       Vec<GuidebookLocation>,
     presenter_reconciliation: PresenterReconciliation,
   },
   ExecutedPresenterReconciliation {
     sessions:            Vec<NasupSession>,
     existing_strands:    Vec<GuidebookScheduleTrack>,
+    existing_locations:  Vec<GuidebookLocation>,
     existing_presenters: Vec<GuidebookPresenter>,
   },
   FetchedGuidebookSessionState {
@@ -285,7 +288,7 @@ impl MasterState {
           existing_strands,
           existing_locations: fetch_all_guidebook_entities(
             config,
-            "/schedule-tracks",
+            "/locations",
           )
           .await?,
         }
@@ -298,6 +301,7 @@ impl MasterState {
       } => MasterState::FetchedGuidebookPresenterState {
         sessions: sessions.clone(),
         existing_strands,
+        existing_locations,
         intended_presenters: nasup_sessions_to_guidebook_presenters(
           config, &sessions,
         )
@@ -315,11 +319,13 @@ impl MasterState {
       MasterState::FetchedGuidebookPresenterState {
         sessions,
         existing_strands,
+        existing_locations,
         intended_presenters,
         existing_presenters,
       } => MasterState::CalculatedPresenterReconciliation {
         sessions,
         existing_strands,
+        existing_locations,
         presenter_reconciliation:
           reconcile_intended_and_existing_guidebook_presenters(
             &intended_presenters,
@@ -333,6 +339,7 @@ impl MasterState {
       MasterState::CalculatedPresenterReconciliation {
         sessions,
         existing_strands,
+        existing_locations,
         presenter_reconciliation,
       } => {
         presenter_reconciliation
@@ -344,6 +351,7 @@ impl MasterState {
         MasterState::ExecutedPresenterReconciliation {
           sessions,
           existing_strands,
+          existing_locations,
           existing_presenters: fetch_all_guidebook_entities(
             config,
             &format!(
@@ -358,6 +366,7 @@ impl MasterState {
       MasterState::ExecutedPresenterReconciliation {
         sessions,
         existing_strands,
+        existing_locations,
         existing_presenters,
       } => {
         let intended_sessions = sessions
@@ -367,6 +376,7 @@ impl MasterState {
               config,
               ns,
               &existing_strands,
+              &existing_locations,
               &existing_presenters,
             )
             .context("failed to convert nasup session to guidebook session")
